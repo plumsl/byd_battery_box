@@ -1,0 +1,99 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "BYD Battery-Box",
+        "description": "Enter the IP address of the BMU. Close Be Connect before, the BMU accepts only one connection.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the battery.",
+      "invalid_response": "The battery sent an unexpected answer."
+    },
+    "abort": {
+      "already_configured": "This battery is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling",
+        "data": {
+          "status_interval": "Overview interval (s)",
+          "detail_interval": "Cell data interval (s)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": {
+        "name": "State of charge"
+      },
+      "soh": {
+        "name": "State of health"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "output_voltage": {
+        "name": "Output voltage"
+      },
+      "current": {
+        "name": "Current"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "max_cell_voltage": {
+        "name": "Max cell voltage"
+      },
+      "min_cell_voltage": {
+        "name": "Min cell voltage"
+      },
+      "max_temperature": {
+        "name": "Max cell temperature"
+      },
+      "min_temperature": {
+        "name": "Min cell temperature"
+      },
+      "charge_energy": {
+        "name": "Energy charged"
+      },
+      "discharge_energy": {
+        "name": "Energy discharged"
+      },
+      "efficiency": {
+        "name": "Round-trip efficiency"
+      },
+      "status": {
+        "name": "Status"
+      },
+      "cell_spread": {
+        "name": "Cell voltage spread"
+      },
+      "balancing": {
+        "name": "Balancing cells"
+      },
+      "cell_voltage": {
+        "name": "Cell {cell} voltage"
+      },
+      "cell_temperature": {
+        "name": "Temperature {sensor}"
+      },
+      "inverter": {
+        "name": "Inverter"
+      },
+      "bms_count": {
+        "name": "BMS count"
+      },
+      "pt_version": {
+        "name": "P/T version"
+      }
+    }
+  }
+}

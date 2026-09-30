@@ -1,0 +1,36 @@
+{
+  "entity": {
+    "sensor": {
+      "soh": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "status": {
+        "default": "mdi:shield-check"
+      },
+      "cell_spread": {
+        "default": "mdi:arrow-expand-vertical"
+      },
+      "balancing": {
+        "default": "mdi:scale-balance"
+      },
+      "efficiency": {
+        "default": "mdi:percent-circle"
+      },
+      "inverter": {
+        "default": "mdi:solar-power"
+      },
+      "bms_count": {
+        "default": "mdi:counter"
+      },
+      "pt_version": {
+        "default": "mdi:information-outline"
+      },
+      "charge_energy": {
+        "default": "mdi:battery-plus"
+      },
+      "discharge_energy": {
+        "default": "mdi:battery-minus"
+      }
+    }
+  }
+}

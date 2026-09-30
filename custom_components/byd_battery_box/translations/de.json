@@ -1,0 +1,99 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "BYD Battery-Box",
+        "description": "IP-Adresse der BMU eingeben. Be Connect vorher schließen, die BMU akzeptiert nur eine Verbindung.",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Keine Verbindung zur Batterie.",
+      "invalid_response": "Die Batterie hat unerwartet geantwortet."
+    },
+    "abort": {
+      "already_configured": "Diese Batterie ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Abfrageintervalle",
+        "data": {
+          "status_interval": "Intervall Übersicht (s)",
+          "detail_interval": "Intervall Zelldaten (s)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": {
+        "name": "Ladezustand"
+      },
+      "soh": {
+        "name": "Gesundheitszustand"
+      },
+      "voltage": {
+        "name": "Spannung"
+      },
+      "output_voltage": {
+        "name": "Ausgangsspannung"
+      },
+      "current": {
+        "name": "Strom"
+      },
+      "power": {
+        "name": "Leistung"
+      },
+      "max_cell_voltage": {
+        "name": "Max. Zellspannung"
+      },
+      "min_cell_voltage": {
+        "name": "Min. Zellspannung"
+      },
+      "max_temperature": {
+        "name": "Max. Zelltemperatur"
+      },
+      "min_temperature": {
+        "name": "Min. Zelltemperatur"
+      },
+      "charge_energy": {
+        "name": "Geladene Energie"
+      },
+      "discharge_energy": {
+        "name": "Entladene Energie"
+      },
+      "efficiency": {
+        "name": "Wirkungsgrad"
+      },
+      "status": {
+        "name": "Status"
+      },
+      "cell_spread": {
+        "name": "Zellspreizung"
+      },
+      "balancing": {
+        "name": "Zellen im Balancing"
+      },
+      "cell_voltage": {
+        "name": "Zelle {cell} Spannung"
+      },
+      "cell_temperature": {
+        "name": "Temperatur {sensor}"
+      },
+      "inverter": {
+        "name": "Wechselrichter"
+      },
+      "bms_count": {
+        "name": "Anzahl BMS"
+      },
+      "pt_version": {
+        "name": "P/T-Version"
+      }
+    }
+  }
+}
