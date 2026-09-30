@@ -12,6 +12,10 @@ from .const import (
     DEFAULT_DETAIL_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_STATUS_INTERVAL,
+    MAX_DETAIL_INTERVAL,
+    MAX_STATUS_INTERVAL,
+    MIN_DETAIL_INTERVAL,
+    MIN_STATUS_INTERVAL,
 )
 from .coordinator import BydConfigEntry, BydRuntimeData, DetailCoordinator, StatusCoordinator
 from .protocol import BydClient, BydError
@@ -29,11 +33,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry) -> bool:
 
     status = StatusCoordinator(
         hass, entry, client,
-        entry.options.get(CONF_STATUS_INTERVAL, DEFAULT_STATUS_INTERVAL),
+        _clamp(entry.options.get(CONF_STATUS_INTERVAL, DEFAULT_STATUS_INTERVAL),
+               MIN_STATUS_INTERVAL, MAX_STATUS_INTERVAL),
     )
     details = DetailCoordinator(
         hass, entry, client,
-        entry.options.get(CONF_DETAIL_INTERVAL, DEFAULT_DETAIL_INTERVAL),
+        _clamp(entry.options.get(CONF_DETAIL_INTERVAL, DEFAULT_DETAIL_INTERVAL),
+               MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL),
         info.bms_count,
     )
     await status.async_config_entry_first_refresh()
@@ -52,3 +58,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: BydConfigEntry) -> bool
 
 async def _async_reload(hass: HomeAssistant, entry: BydConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _clamp(value: float, minimum: int, maximum: int) -> int:
+    """Enforce the limits even for values stored by older versions."""
+    return int(min(max(value, minimum), maximum))

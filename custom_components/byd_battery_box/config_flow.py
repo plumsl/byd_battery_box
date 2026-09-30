@@ -9,6 +9,11 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
 from .const import (
     CONF_DETAIL_INTERVAL,
@@ -17,6 +22,10 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_STATUS_INTERVAL,
     DOMAIN,
+    MAX_DETAIL_INTERVAL,
+    MAX_STATUS_INTERVAL,
+    MIN_DETAIL_INTERVAL,
+    MIN_STATUS_INTERVAL,
 )
 from .protocol import BydClient, BydConnectionError, BydError
 
@@ -70,11 +79,29 @@ class BydOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_STATUS_INTERVAL,
                     default=opts.get(CONF_STATUS_INTERVAL, DEFAULT_STATUS_INTERVAL),
-                ): vol.All(int, vol.Range(10, 600)),
+                ): vol.All(
+                    _seconds(MIN_STATUS_INTERVAL, MAX_STATUS_INTERVAL, 5),
+                    vol.Coerce(int),
+                    vol.Range(MIN_STATUS_INTERVAL, MAX_STATUS_INTERVAL),
+                ),
                 vol.Required(
                     CONF_DETAIL_INTERVAL,
                     default=opts.get(CONF_DETAIL_INTERVAL, DEFAULT_DETAIL_INTERVAL),
-                ): vol.All(int, vol.Range(60, 3600)),
+                ): vol.All(
+                    _seconds(MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL, 30),
+                    vol.Coerce(int),
+                    vol.Range(MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL),
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
+
+
+def _seconds(minimum: int, maximum: int, step: int) -> NumberSelector:
+    """Number field in seconds with hard limits."""
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=minimum, max=maximum, step=step,
+            unit_of_measurement="s", mode=NumberSelectorMode.BOX,
+        )
+    )

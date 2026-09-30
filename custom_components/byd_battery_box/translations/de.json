@@ -25,6 +25,11 @@
         "data": {
           "status_interval": "Intervall Übersicht (s)",
           "detail_interval": "Intervall Zelldaten (s)"
+        },
+        "description": "Übersicht: SOC, Strom, Leistung (10–600 s). Zelldaten: Zellspannungen und Temperaturen aller BMS (60–3600 s). Ein Zelldaten-Durchlauf dauert ca. 5 s pro BMS, währenddessen kann sich Be Connect nicht verbinden.",
+        "data_description": {
+          "status_interval": "Standard 30 s, mindestens 10 s.",
+          "detail_interval": "Standard 300 s, mindestens 60 s."
         }
       }
     }

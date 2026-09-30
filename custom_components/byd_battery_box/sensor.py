@@ -22,6 +22,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -166,8 +167,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
         model=f"Battery-Box Premium {rt.info.battery_type}",
         serial_number=serial,
         sw_version=f"BMU {rt.info.bmu_firmware}",
-        configuration_url=None,
     )
+    # HA >= 2026.8 links child devices by registry id (via_device is deprecated),
+    # older versions only know the via_device identifier tuple.
+    if "via_device_id" in DeviceInfo.__annotations__:
+        bmu_entry = dr.async_get(hass).async_get_or_create(
+            config_entry_id=entry.entry_id, **bmu_device
+        )
+        via: dict = {"via_device_id": bmu_entry.id}
+    else:
+        via = {"via_device": (DOMAIN, serial)}
     entities: list[SensorEntity] = [
         BmuSensor(rt.status, desc, serial, bmu_device) for desc in BMU_SENSORS
     ]
@@ -188,7 +197,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
             model=f"{rt.info.battery_type} BMS",
             serial_number=bms.serial if bms else None,
             sw_version=rt.info.bms_firmware,
-            via_device=(DOMAIN, serial),
+            **via,
         )
         entities += [BmsSensor(rt.details, desc, serial, index, device) for desc in BMS_SENSORS]
         entities += [

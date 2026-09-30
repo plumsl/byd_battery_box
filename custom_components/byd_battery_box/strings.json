@@ -25,6 +25,11 @@
         "data": {
           "status_interval": "Overview interval (s)",
           "detail_interval": "Cell data interval (s)"
+        },
+        "description": "Overview: SOC, current, power (10–600 s). Cell data: cell voltages and temperatures of every BMS (60–3600 s). A cell data cycle takes about 5 s per BMS; Be Connect cannot connect during that time.",
+        "data_description": {
+          "status_interval": "Default 30 s, minimum 10 s.",
+          "detail_interval": "Default 300 s, minimum 60 s."
         }
       }
     }
