@@ -3,8 +3,6 @@
 Local Home Assistant integration for the **BYD Battery-Box Premium LVL**. It reads the
 BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware.
 
-![Dashboard card: three LVL batteries side by side with every cell and temperature sensor](https://raw.githubusercontent.com/plumsl/byd_battery_box/main/docs/images/card-live.png)
-
 > 🇩🇪 Deutsche Kurzanleitung weiter unten.
 
 ## Features
@@ -101,3 +99,6 @@ GPL-3.0
 3. *Einstellungen → Geräte & Dienste → Integration hinzufügen → BYD Battery-Box*, IP-Adresse der BMU eingeben.
 
 Be Connect vorher schließen – die BMU akzeptiert nur eine Verbindung gleichzeitig.
+
+![Dashboard card: three LVL batteries side by side with every cell and temperature sensor](https://raw.githubusercontent.com/plumsl/byd_battery_box/main/docs/images/card-live.png)
+
