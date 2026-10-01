@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.2.0-beta.1";
+const CARD_VERSION = "0.2.0-beta.2";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 

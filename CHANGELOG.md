@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-beta.2
+- Dashboard card is registered more robustly (retry after start, warning in the log if it fails)
+- Screenshot in README
+
 ## 0.2.0-beta.1
 - Dashboard card `custom:byd-battery-box-card` (live view and history view), configurable colours
 - Alarm binary sensors and repair issues with configurable thresholds (second options step)

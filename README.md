@@ -3,6 +3,11 @@
 Local Home Assistant integration for the **BYD Battery-Box Premium LVL**. It reads the
 BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/plumsl/byd_battery_box/main/docs/images/card-live.png"
+       alt="Dashboard card: three LVL batteries side by side, every cell and temperature sensor" width="420">
+</p>
+
 > 🇩🇪 Deutsche Kurzanleitung weiter unten.
 
 ## Features

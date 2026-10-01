@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.const import CONF_HOST, CONF_PORT, Platform
+from homeassistant.const import CONF_HOST, CONF_PORT, EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
@@ -44,10 +44,32 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(_CARD_FILE), False)]
     )
-    if "frontend" in hass.config.components:
-        from homeassistant.components.frontend import add_extra_js_url
+    url = f"{CARD_URL}?v={version}"
 
-        add_extra_js_url(hass, f"{CARD_URL}?v={version}")
+    @callback
+    def _register(_event=None) -> bool:
+        try:
+            from homeassistant.components.frontend import add_extra_js_url
+
+            add_extra_js_url(hass, url)
+        except (ImportError, KeyError):
+            return False
+        _LOGGER.debug("Dashboard card registered: %s", url)
+        return True
+
+    # The frontend may not be ready yet when this integration loads early.
+    if not _register():
+        _LOGGER.debug("Frontend not ready, registering the card after start")
+
+        @callback
+        def _late(_event) -> None:
+            if not _register():
+                _LOGGER.warning(
+                    "Could not register the dashboard card automatically. Add %s "
+                    "as a dashboard resource (JavaScript module) instead", CARD_URL
+                )
+
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _late)
     return True
 
 
