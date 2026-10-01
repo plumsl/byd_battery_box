@@ -63,8 +63,9 @@ colors:
   mid: "#5DCAA5"
   high: "#EF9F27"
   balancing: "#E24B4A"
-  cold: "#85B7EB"
-  warm: "#F0997B"
+  cold: "#378ADD"     # 10 °C and below
+  normal: "#E3E1D9"   # 25 °C
+  warm: "#D85A30"     # 40 °C and above
 ```
 
 A complete example dashboard is in [`examples/dashboard.yaml`](examples/dashboard.yaml).

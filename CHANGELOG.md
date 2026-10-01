@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-beta.3
+- Temperature colours use a three-step scale (cold 10 °C → neutral 25 °C → warm 40 °C);
+  the neutral colour is configurable
+
 ## 0.2.0-beta.2
 - Dashboard card is registered more robustly (retry after start, warning in the log if it fails)
 - Screenshot in README

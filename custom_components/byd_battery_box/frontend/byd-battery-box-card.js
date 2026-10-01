@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.2.0-beta.2";
+const CARD_VERSION = "0.2.0-beta.3";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 
@@ -12,9 +12,12 @@ const DEFAULT_COLORS = {
   mid: "#5DCAA5",
   high: "#EF9F27",
   balancing: "#E24B4A",
-  cold: "#85B7EB",
-  warm: "#F0997B",
+  cold: "#378ADD",
+  normal: "#E3E1D9",
+  warm: "#D85A30",
 };
+// Temperature scale: cold at/below TEMP_COLD, neutral at TEMP_NORMAL, warm at/above TEMP_WARM
+const TEMP_COLD = 10, TEMP_NORMAL = 25, TEMP_WARM = 40;
 const DEFAULTS = {
   title: "",
   scale_mv: 15,
@@ -70,7 +73,9 @@ function mix(a, b, t) {
 }
 const textOn = (hex) => { const [r, g, b] = rgb(hex); return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1c1c1c" : "#ffffff"; };
 const devColor = (d, scale, c) => { const x = Math.max(-1, Math.min(1, d / scale)); return x >= 0 ? mix(c.mid, c.high, x) : mix(c.mid, c.low, -x); };
-const tempColor = (v, c) => mix(c.cold, c.warm, Math.max(0, Math.min(1, (v - 15) / 25)));
+const tempColor = (v, c) => v >= TEMP_NORMAL
+  ? mix(c.normal, c.warm, Math.min(1, (v - TEMP_NORMAL) / (TEMP_WARM - TEMP_NORMAL)))
+  : mix(c.normal, c.cold, Math.min(1, (TEMP_NORMAL - v) / (TEMP_NORMAL - TEMP_COLD)));
 const num = (hass, id) => { const s = id && hass.states[id]; if (!s) return null; const v = parseFloat(s.state); return Number.isFinite(v) ? v : null; };
 const fmt = (v, d = 0) => (v == null ? "–" : Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false }));
 const startMs = (p) => (typeof p.start === "number" ? p.start : Date.parse(p.start));
@@ -256,7 +261,7 @@ class BydBatteryBoxCard extends HTMLElement {
   _legend() {
     const c = this._config.colors, s = this._config.scale_mv;
     return `<div class="legend"><span>−${s} mV</span><div class="grad" style="background:linear-gradient(90deg,${c.low},${c.mid},${c.high})"></div><span>+${s} mV</span>
-      <span style="margin-left:auto"><span class="dot" style="background:${c.cold}"></span>15 °C <span class="dot" style="background:${c.warm};margin-left:6px"></span>40 °C</span></div>`;
+      <span style="margin-left:auto">${TEMP_COLD} °C</span><div class="grad" style="width:80px;background:linear-gradient(90deg,${c.cold},${c.normal},${c.warm})"></div><span>${TEMP_WARM} °C</span></div>`;
   }
 
   /* ---------- history ---------- */
@@ -354,8 +359,9 @@ const COLOR_FIELDS = [
   ["mid", { de: "Zelle im Mittel", en: "Cell at average" }],
   ["high", { de: "Zelle über Mittel", en: "Cell above average" }],
   ["balancing", { de: "Balancing-Rahmen", en: "Balancing frame" }],
-  ["cold", { de: "Temperatur kalt", en: "Temperature cold" }],
-  ["warm", { de: "Temperatur warm", en: "Temperature warm" }],
+  ["cold", { de: "Temperatur kalt (10 °C)", en: "Temperature cold (10 °C)" }],
+  ["normal", { de: "Temperatur normal (25 °C)", en: "Temperature normal (25 °C)" }],
+  ["warm", { de: "Temperatur warm (40 °C)", en: "Temperature warm (40 °C)" }],
 ];
 
 class BydBatteryBoxCardEditor extends HTMLElement {
