@@ -220,6 +220,7 @@ class BmsData:
     min_temp_no: int
     balancing_bits: str
     balancing_count: int
+    balancing_cells: list[int]
     charge_energy: float
     discharge_energy: float
     status_code: int
@@ -236,6 +237,10 @@ class BmsData:
     @property
     def cell_spread(self) -> int:
         return max(self.cell_voltages) - min(self.cell_voltages)
+
+    @property
+    def cell_average(self) -> float:
+        return round(sum(self.cell_voltages) / len(self.cell_voltages), 1)
 
 
 # --------------------------------------------------------------------------
@@ -303,6 +308,13 @@ def parse_bms(index: int, blocks: list[bytes]) -> BmsData:
         min_temp_no=b1[16],
         balancing_bits=b1[17:33].hex(),
         balancing_count=bin(int.from_bytes(b1[17:33], "big")).count("1"),
+        # EXPERIMENTAL: bit order not yet confirmed (byte 0 bit 0 = cell 1 assumed)
+        balancing_cells=[
+            byte * 8 + bit + 1
+            for byte in range(2)
+            for bit in range(8)
+            if b1[17 + byte] & (1 << bit)
+        ],
         charge_energy=_u32_swapped(b1, 33) / 1000,
         discharge_energy=_u32_swapped(b1, 37) / 1000,
         voltage=_s16(b1, 45) / 10,

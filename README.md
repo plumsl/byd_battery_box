@@ -13,6 +13,16 @@ BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware
 - **Per BMS** (default every 5 min): SOC, SOH, voltage, current, power, 16 cell voltages,
   8 temperatures, cell voltage spread, balancing, energy counters, status flags.
 - One device per BMS, linked to the BMU device – like in *Be Connect Plus*.
+- **Derived values**: remaining energy, usable capacity (from SOH), full cycles, SOC spread
+  between the BMS, system-wide cell spread, average cell voltage.
+- **Alarms** with adjustable thresholds (cell over/undervoltage, cell spread – separate limit
+  for a full battery –, temperature, SOC imbalance, BMU/BMS fault flags). They show up as
+  *problem* binary sensors and under *Settings → Repairs*, and clear themselves.
+- **Dashboard card** (`custom:byd-battery-box-card`), installed automatically with the
+  integration: all batteries side by side, every cell coloured by its deviation, the
+  temperature sensors between the cells, plus a *History* view with long-term SOH, cell
+  spread trend, SOC per BMS and a 30-day cell heatmap. Colours are configurable in the
+  visual editor.
 - Sensors become *unavailable* on communication errors instead of showing stale values.
 - *Download diagnostics* includes the raw frames – please attach it to issues.
 
@@ -32,6 +42,32 @@ HVS/HVM are **not** tested yet. Reports (with diagnostics) are very welcome.
 
 Polling intervals can be changed later under *Configure*.
 
+## Dashboard card
+
+After installing, edit a dashboard → *Add card* → search for **BYD Battery-Box**. All
+options are available in the visual editor. YAML example:
+
+```yaml
+type: custom:byd-battery-box-card
+title: Batteriespeicher
+scale_mv: 15            # deviation (mV) that reaches the full colour
+swap_modules: false     # B1 = cells 1-8 is drawn at the bottom
+show_balancing_cells: false   # experimental, bit order not yet confirmed
+colors:
+  low: "#378ADD"
+  mid: "#5DCAA5"
+  high: "#EF9F27"
+  balancing: "#E24B4A"
+  cold: "#85B7EB"
+  warm: "#F0997B"
+```
+
+A complete example dashboard is in [`examples/dashboard.yaml`](examples/dashboard.yaml).
+Click on any cell, temperature or value to open its history.
+
+Long-term charts use Home Assistant's statistics, which are collected from installation
+onwards – the history view fills up over time.
+
 ## Important notes
 
 - The BMU accepts **only one TCP connection** at a time. While *Be Connect* is connected,
@@ -40,6 +76,8 @@ Polling intervals can be changed later under *Configure*.
 - Current and power reported by the BMU lag behind fast load changes by roughly 30–60 s.
   For a second-accurate power reading use your inverter's battery sensor.
 - Sign convention: **positive current/power = discharging**, negative = charging.
+- Cells 1–8 are assumed to sit in the lower module B1 and temperature sensors 1–4 in B1
+  (derived from measurements, not from BYD documentation). Use `swap_modules` if needed.
 
 ## Credits
 

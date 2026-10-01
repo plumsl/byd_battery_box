@@ -31,6 +31,19 @@
           "status_interval": "Standard 30 s, mindestens 10 s.",
           "detail_interval": "Standard 300 s, mindestens 60 s."
         }
+      },
+      "alarms": {
+        "title": "Alarmschwellen",
+        "description": "Alarme erscheinen als Problem-Sensoren und unter Einstellungen → Reparaturen. Sie verschwinden automatisch wieder. Oberhalb von {full_soc} % SOC gilt für die Spreizung der zweite, höhere Grenzwert, weil LFP-Zellen im vollen Zustand auseinanderlaufen.",
+        "data": {
+          "cell_voltage_high": "Zellspannung zu hoch",
+          "cell_voltage_low": "Zellspannung zu niedrig",
+          "cell_spread": "Zellspreizung (normal)",
+          "cell_spread_full": "Zellspreizung (Batterie voll)",
+          "temperature_high": "Temperatur zu hoch",
+          "temperature_low": "Temperatur zu niedrig",
+          "soc_imbalance": "SOC-Differenz zwischen BMS"
+        }
       }
     }
   },
@@ -98,7 +111,85 @@
       },
       "pt_version": {
         "name": "P/T-Version"
+      },
+      "remaining_energy": {
+        "name": "Restenergie"
+      },
+      "usable_capacity": {
+        "name": "Nutzbare Kapazität"
+      },
+      "full_cycles": {
+        "name": "Vollzyklen"
+      },
+      "soc_spread": {
+        "name": "SOC-Differenz zwischen BMS"
+      },
+      "system_cell_spread": {
+        "name": "Zellspreizung (gesamt)"
+      },
+      "cell_average": {
+        "name": "Mittlere Zellspannung"
       }
+    },
+    "binary_sensor": {
+      "cell_voltage_high": {
+        "name": "Zellüberspannung"
+      },
+      "cell_voltage_low": {
+        "name": "Zellunterspannung"
+      },
+      "cell_spread_high": {
+        "name": "Zellspreizung zu hoch"
+      },
+      "temperature_high": {
+        "name": "Temperatur zu hoch"
+      },
+      "temperature_low": {
+        "name": "Temperatur zu niedrig"
+      },
+      "bms_fault": {
+        "name": "BMS-Fehler"
+      },
+      "system_fault": {
+        "name": "Systemfehler"
+      },
+      "soc_imbalance": {
+        "name": "SOC-Ungleichgewicht"
+      }
+    }
+  },
+  "issues": {
+    "cell_voltage_high": {
+      "title": "{device}: Zellüberspannung",
+      "description": "Zelle {cell} liegt bei {value} mV (Grenze {limit} mV)."
+    },
+    "cell_voltage_low": {
+      "title": "{device}: Zellunterspannung",
+      "description": "Zelle {cell} liegt bei {value} mV (Grenze {limit} mV)."
+    },
+    "cell_spread_high": {
+      "title": "{device}: Zellspannungen laufen auseinander",
+      "description": "Die Differenz zwischen höchster und niedrigster Zelle beträgt {value} mV (Grenze {limit} mV, SOC {soc} %)."
+    },
+    "temperature_high": {
+      "title": "{device}: Temperatur zu hoch",
+      "description": "Fühler {sensor} meldet {value} °C (Grenze {limit} °C)."
+    },
+    "temperature_low": {
+      "title": "{device}: Temperatur zu niedrig",
+      "description": "Fühler {sensor} meldet {value} °C (Grenze {limit} °C)."
+    },
+    "bms_fault": {
+      "title": "{device}: Fehler gemeldet",
+      "description": "Das BMS meldet: {flags} (Code {status_code})."
+    },
+    "system_fault": {
+      "title": "{device}: Systemfehler",
+      "description": "Die BMU meldet: {errors} (Code {error_code})."
+    },
+    "soc_imbalance": {
+      "title": "Batteriemodule ungleich geladen",
+      "description": "Der SOC der BMS unterscheidet sich um {value} % (Grenze {limit} %)."
     }
   }
 }

@@ -31,6 +31,19 @@
           "status_interval": "Default 30 s, minimum 10 s.",
           "detail_interval": "Default 300 s, minimum 60 s."
         }
+      },
+      "alarms": {
+        "title": "Alarm thresholds",
+        "description": "Alarms appear as problem sensors and under Settings → Repairs. They clear automatically. Spread above {full_soc} % SOC uses the second, higher limit because LFP cells drift apart when full.",
+        "data": {
+          "cell_voltage_high": "Cell voltage high",
+          "cell_voltage_low": "Cell voltage low",
+          "cell_spread": "Cell spread (normal)",
+          "cell_spread_full": "Cell spread (battery full)",
+          "temperature_high": "Temperature high",
+          "temperature_low": "Temperature low",
+          "soc_imbalance": "SOC difference between BMS"
+        }
       }
     }
   },
@@ -98,7 +111,85 @@
       },
       "pt_version": {
         "name": "P/T version"
+      },
+      "remaining_energy": {
+        "name": "Remaining energy"
+      },
+      "usable_capacity": {
+        "name": "Usable capacity"
+      },
+      "full_cycles": {
+        "name": "Full cycles"
+      },
+      "soc_spread": {
+        "name": "SOC spread between BMS"
+      },
+      "system_cell_spread": {
+        "name": "Cell voltage spread (system)"
+      },
+      "cell_average": {
+        "name": "Average cell voltage"
       }
+    },
+    "binary_sensor": {
+      "cell_voltage_high": {
+        "name": "Cell overvoltage"
+      },
+      "cell_voltage_low": {
+        "name": "Cell undervoltage"
+      },
+      "cell_spread_high": {
+        "name": "Cell spread high"
+      },
+      "temperature_high": {
+        "name": "Temperature high"
+      },
+      "temperature_low": {
+        "name": "Temperature low"
+      },
+      "bms_fault": {
+        "name": "BMS fault"
+      },
+      "system_fault": {
+        "name": "System fault"
+      },
+      "soc_imbalance": {
+        "name": "SOC imbalance"
+      }
+    }
+  },
+  "issues": {
+    "cell_voltage_high": {
+      "title": "{device}: cell overvoltage",
+      "description": "Cell {cell} is at {value} mV (limit {limit} mV)."
+    },
+    "cell_voltage_low": {
+      "title": "{device}: cell undervoltage",
+      "description": "Cell {cell} is at {value} mV (limit {limit} mV)."
+    },
+    "cell_spread_high": {
+      "title": "{device}: cell voltages drifting apart",
+      "description": "The difference between the highest and lowest cell is {value} mV (limit {limit} mV, SOC {soc} %)."
+    },
+    "temperature_high": {
+      "title": "{device}: temperature high",
+      "description": "Sensor {sensor} reports {value} °C (limit {limit} °C)."
+    },
+    "temperature_low": {
+      "title": "{device}: temperature low",
+      "description": "Sensor {sensor} reports {value} °C (limit {limit} °C)."
+    },
+    "bms_fault": {
+      "title": "{device}: fault reported",
+      "description": "The BMS reports: {flags} (code {status_code})."
+    },
+    "system_fault": {
+      "title": "{device}: system fault",
+      "description": "The BMU reports: {errors} (code {error_code})."
+    },
+    "soc_imbalance": {
+      "title": "Battery modules unevenly charged",
+      "description": "The SOC of the BMS differs by {value} % (limit {limit} %)."
     }
   }
 }

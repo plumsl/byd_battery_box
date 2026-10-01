@@ -16,6 +16,10 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    ALARM_OPTIONS,
+    CONF_SOC_DIFF,
+    CONF_TEMP_HIGH,
+    CONF_TEMP_LOW,
     CONF_DETAIL_INTERVAL,
     CONF_STATUS_INTERVAL,
     DEFAULT_DETAIL_INTERVAL,
@@ -23,6 +27,7 @@ from .const import (
     DEFAULT_STATUS_INTERVAL,
     DOMAIN,
     MAX_DETAIL_INTERVAL,
+    SPREAD_FULL_SOC,
     MAX_STATUS_INTERVAL,
     MIN_DETAIL_INTERVAL,
     MIN_STATUS_INTERVAL,
@@ -69,9 +74,13 @@ class BydConfigFlow(ConfigFlow, domain=DOMAIN):
 class BydOptionsFlow(OptionsFlow):
     """Polling intervals."""
 
+    def __init__(self) -> None:
+        self._data: dict[str, Any] = {}
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            self._data.update(user_input)
+            return await self.async_step_alarms()
 
         opts = self.config_entry.options
         schema = vol.Schema(
@@ -95,6 +104,31 @@ class BydOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
+
+    async def async_step_alarms(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            self._data.update({k: int(v) for k, v in user_input.items()})
+            return self.async_create_entry(data=self._data)
+
+        opts = self.config_entry.options
+        units = {CONF_TEMP_HIGH: "°C", CONF_TEMP_LOW: "°C", CONF_SOC_DIFF: "%"}
+        schema = vol.Schema(
+            {
+                vol.Required(key, default=opts.get(key, default)): vol.All(
+                    NumberSelector(NumberSelectorConfig(
+                        min=lo, max=hi, step=step, mode=NumberSelectorMode.BOX,
+                        unit_of_measurement=units.get(key, "mV"),
+                    )),
+                    vol.Coerce(int),
+                    vol.Range(lo, hi),
+                )
+                for key, (default, lo, hi, step) in ALARM_OPTIONS.items()
+            }
+        )
+        return self.async_show_form(
+            step_id="alarms", data_schema=schema,
+            description_placeholders={"full_soc": str(SPREAD_FULL_SOC)},
+        )
 
 
 def _seconds(minimum: int, maximum: int, step: int) -> NumberSelector:

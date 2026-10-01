@@ -1,0 +1,17 @@
+# Example dashboard for the BYD Battery-Box integration.
+# Settings -> Dashboards -> Add dashboard -> "New dashboard from scratch",
+# open it, ⋮ -> Edit -> ⋮ -> Raw configuration editor, paste this file.
+title: Batteriespeicher
+views:
+  - title: Batterie
+    path: batterie
+    icon: mdi:home-battery
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        column_span: 4
+        cards:
+          - type: custom:byd-battery-box-card
+            grid_options:
+              columns: full

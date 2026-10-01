@@ -27,7 +27,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER
+from .const import DOMAIN, MANUFACTURER, NOMINAL_KWH_PER_BMS
 from .coordinator import BydConfigEntry
 from .protocol import CELLS_PER_BMS, TEMPS_PER_BMS, BmsData, BmuStatus
 
@@ -140,7 +140,12 @@ BMS_SENSORS: tuple[BydSensorDescription, ...] = (
                          attr_fn=lambda b: {"sensor": b.min_temp_no}),
     BydSensorDescription(key="balancing", translation_key="balancing", state_class=M,
                          value_fn=lambda b: b.balancing_count,
-                         attr_fn=lambda b: {"bits": b.balancing_bits}),
+                         attr_fn=lambda b: {"bits": b.balancing_bits,
+                                            "cells_experimental": b.balancing_cells}),
+    BydSensorDescription(key="cell_average", translation_key="cell_average",
+                         native_unit_of_measurement=MV, device_class=SensorDeviceClass.VOLTAGE,
+                         state_class=M, suggested_display_precision=0,
+                         value_fn=lambda b: b.cell_average),
     BydSensorDescription(key="charge_energy", translation_key="charge_energy",
                          native_unit_of_measurement=KWH, device_class=SensorDeviceClass.ENERGY,
                          state_class=SensorStateClass.TOTAL_INCREASING, suggested_display_precision=1,
@@ -156,31 +161,83 @@ BMS_SENSORS: tuple[BydSensorDescription, ...] = (
 )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
-                            async_add_entities: AddEntitiesCallback) -> None:
-    rt = entry.runtime_data
-    serial = rt.info.serial
-    bmu_device = DeviceInfo(
-        identifiers={(DOMAIN, serial)},
+def bmu_device_info(info) -> DeviceInfo:
+    """Device info of the BMU (parent device)."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, info.serial)},
         manufacturer=MANUFACTURER,
         name="BYD Battery-Box",
-        model=f"Battery-Box Premium {rt.info.battery_type}",
-        serial_number=serial,
-        sw_version=f"BMU {rt.info.bmu_firmware}",
+        model=f"Battery-Box Premium {info.battery_type}",
+        serial_number=info.serial,
+        sw_version=f"BMU {info.bmu_firmware}",
     )
+
+
+def bms_device_info(hass: HomeAssistant, entry: BydConfigEntry, rt, index: int) -> DeviceInfo:
+    """Device info of one BMS, linked to the BMU."""
+    serial = rt.info.serial
     # HA >= 2026.8 links child devices by registry id (via_device is deprecated),
     # older versions only know the via_device identifier tuple.
     if "via_device_id" in DeviceInfo.__annotations__:
         bmu_entry = dr.async_get(hass).async_get_or_create(
-            config_entry_id=entry.entry_id, **bmu_device
+            config_entry_id=entry.entry_id, **bmu_device_info(rt.info)
         )
         via: dict = {"via_device_id": bmu_entry.id}
     else:
         via = {"via_device": (DOMAIN, serial)}
+    bms = (rt.details.data or {}).get(index)
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{serial}_bms{index}")},
+        manufacturer=MANUFACTURER,
+        name=f"BYD BMS {index}",
+        model=f"{rt.info.battery_type} BMS",
+        serial_number=bms.serial if bms else None,
+        sw_version=rt.info.bms_firmware,
+        **via,
+    )
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
+                            async_add_entities: AddEntitiesCallback) -> None:
+    rt = entry.runtime_data
+    serial = rt.info.serial
+    bmu_device = bmu_device_info(rt.info)
+    nominal = rt.info.bms_count * NOMINAL_KWH_PER_BMS
+
     entities: list[SensorEntity] = [
         BmuSensor(rt.status, desc, serial, bmu_device) for desc in BMU_SENSORS
     ]
     entities += [
+        BmuSensor(rt.status, BydSensorDescription(
+            key="remaining_energy", translation_key="remaining_energy",
+            native_unit_of_measurement=KWH, device_class=SensorDeviceClass.ENERGY_STORAGE,
+            state_class=M, suggested_display_precision=1,
+            value_fn=lambda s: round(nominal * s.soh / 100 * s.soc / 100, 2),
+        ), serial, bmu_device),
+        BmuSensor(rt.status, BydSensorDescription(
+            key="usable_capacity", translation_key="usable_capacity",
+            native_unit_of_measurement=KWH, device_class=SensorDeviceClass.ENERGY_STORAGE,
+            state_class=M, suggested_display_precision=1,
+            value_fn=lambda s: round(nominal * s.soh / 100, 2),
+            attr_fn=lambda s: {"nominal_capacity": round(nominal, 2)},
+        ), serial, bmu_device),
+        BmuSensor(rt.status, BydSensorDescription(
+            key="full_cycles", translation_key="full_cycles", state_class=M,
+            suggested_display_precision=1,
+            value_fn=lambda s: round(s.discharge_energy / nominal, 2),
+        ), serial, bmu_device),
+        BmuSensor(rt.details, BydSensorDescription(
+            key="soc_spread", translation_key="soc_spread",
+            native_unit_of_measurement=PERCENTAGE, state_class=M, suggested_display_precision=1,
+            value_fn=lambda d: round(max(b.soc for b in d.values()) - min(b.soc for b in d.values()), 1),
+            attr_fn=lambda d: {f"bms_{i}": b.soc for i, b in d.items()},
+        ), serial, bmu_device),
+        BmuSensor(rt.details, BydSensorDescription(
+            key="system_cell_spread", translation_key="system_cell_spread",
+            native_unit_of_measurement=MV, device_class=SensorDeviceClass.VOLTAGE, state_class=M,
+            value_fn=lambda d: max(max(b.cell_voltages) for b in d.values())
+            - min(min(b.cell_voltages) for b in d.values()),
+        ), serial, bmu_device),
         BmuInfoSensor(rt.status, "inverter", serial, bmu_device, lambda: rt.info.inverter,
                       lambda: {"application": rt.info.application, "phase": rt.info.phase}),
         BmuInfoSensor(rt.status, "bms_count", serial, bmu_device, lambda: rt.info.bms_count, None),
@@ -189,16 +246,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
     ]
 
     for index in range(1, rt.info.bms_count + 1):
-        bms = (rt.details.data or {}).get(index)
-        device = DeviceInfo(
-            identifiers={(DOMAIN, f"{serial}_bms{index}")},
-            manufacturer=MANUFACTURER,
-            name=f"BYD BMS {index}",
-            model=f"{rt.info.battery_type} BMS",
-            serial_number=bms.serial if bms else None,
-            sw_version=rt.info.bms_firmware,
-            **via,
-        )
+        device = bms_device_info(hass, entry, rt, index)
         entities += [BmsSensor(rt.details, desc, serial, index, device) for desc in BMS_SENSORS]
         entities += [
             BmsSensor(rt.details, BydSensorDescription(
@@ -206,6 +254,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
                 translation_placeholders={"cell": str(cell + 1)},
                 native_unit_of_measurement=MV, device_class=SensorDeviceClass.VOLTAGE,
                 state_class=M, value_fn=lambda b, c=cell: b.cell_voltages[c],
+                attr_fn=lambda b, c=cell, i=index: {
+                    "bms": i, "cell": c + 1, "module": "B1" if c < 8 else "B2"},
             ), serial, index, device)
             for cell in range(CELLS_PER_BMS)
         ]
@@ -215,6 +265,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
                 translation_placeholders={"sensor": str(t + 1)},
                 native_unit_of_measurement=C, device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=M, value_fn=lambda b, i=t: b.temperatures[i],
+                attr_fn=lambda b, t=t, i=index: {
+                    "bms": i, "sensor": t + 1, "module": "B1" if t < 4 else "B2"},
             ), serial, index, device)
             for t in range(TEMPS_PER_BMS)
         ]

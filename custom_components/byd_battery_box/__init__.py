@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
-from homeassistant.const import CONF_HOST, CONF_PORT, Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+import logging
+from pathlib import Path
 
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.const import CONF_HOST, CONF_PORT, Platform
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
+
+from .alarms import AlarmManager
 from .const import (
+    CARD_URL,
     CONF_DETAIL_INTERVAL,
     CONF_STATUS_INTERVAL,
     DEFAULT_DETAIL_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_STATUS_INTERVAL,
+    DOMAIN,
     MAX_DETAIL_INTERVAL,
     MAX_STATUS_INTERVAL,
     MIN_DETAIL_INTERVAL,
@@ -20,7 +30,25 @@ from .const import (
 from .coordinator import BydConfigEntry, BydRuntimeData, DetailCoordinator, StatusCoordinator
 from .protocol import BydClient, BydError
 
-PLATFORMS = [Platform.SENSOR]
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+_CARD_FILE = Path(__file__).parent / "frontend" / "byd-battery-box-card.js"
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the dashboard card and load it on every dashboard."""
+    version = (await async_get_integration(hass, DOMAIN)).version
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(_CARD_FILE), False)]
+    )
+    if "frontend" in hass.config.components:
+        from homeassistant.components.frontend import add_extra_js_url
+
+        add_extra_js_url(hass, f"{CARD_URL}?v={version}")
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry) -> bool:
@@ -42,10 +70,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry) -> bool:
                MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL),
         info.bms_count,
     )
+    alarms = AlarmManager(hass, entry.entry_id, info.serial, dict(entry.options), info.bms_count)
+
+    # Alarms are evaluated before the entities are refreshed (registered first).
+    entry.async_on_unload(status.async_add_listener(callback(lambda: alarms.update_status(status.data))))
+    entry.async_on_unload(details.async_add_listener(callback(lambda: alarms.update_bms(details.data))))
+    entry.async_on_unload(alarms.clear_issues)
+
     await status.async_config_entry_first_refresh()
     await details.async_config_entry_first_refresh()
+    alarms.update_status(status.data)
+    alarms.update_bms(details.data)
 
-    entry.runtime_data = BydRuntimeData(client, info, status, details)
+    entry.runtime_data = BydRuntimeData(client, info, status, details, alarms)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

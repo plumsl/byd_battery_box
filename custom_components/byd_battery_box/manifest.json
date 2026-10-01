@@ -1,12 +1,20 @@
 {
   "domain": "byd_battery_box",
   "name": "BYD Battery-Box",
-  "codeowners": ["@plumsl"],
+  "after_dependencies": [
+    "frontend"
+  ],
+  "codeowners": [
+    "@plumsl"
+  ],
   "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/plumsl/byd_battery_box",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/plumsl/byd_battery_box/issues",
   "requirements": [],
-  "version": "0.1.1"
+  "version": "0.2.0-beta.1"
 }

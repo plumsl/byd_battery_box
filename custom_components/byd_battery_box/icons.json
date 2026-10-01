@@ -30,6 +30,24 @@
       },
       "discharge_energy": {
         "default": "mdi:battery-minus"
+      },
+      "remaining_energy": {
+        "default": "mdi:battery-clock"
+      },
+      "usable_capacity": {
+        "default": "mdi:battery-high"
+      },
+      "full_cycles": {
+        "default": "mdi:battery-sync"
+      },
+      "soc_spread": {
+        "default": "mdi:approximately-equal"
+      },
+      "system_cell_spread": {
+        "default": "mdi:arrow-expand-vertical"
+      },
+      "cell_average": {
+        "default": "mdi:sine-wave"
       }
     }
   }
