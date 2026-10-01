@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Fix: the dashboard card is now registered automatically as a dashboard resource
+  (Settings → Dashboards → Resources), the same way HACS cards are loaded. Existing manual
+  entries for the card are updated to the current version automatically.
+
 ## 0.2.0
 - Dashboard card `custom:byd-battery-box-card`, installed automatically with the integration:
   live view with every cell and temperature sensor, history view with SOH, cell spread,

@@ -6,10 +6,11 @@ import logging
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.const import CONF_HOST, CONF_PORT, EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
@@ -39,37 +40,54 @@ _CARD_FILE = Path(__file__).parent / "frontend" / "byd-battery-box-card.js"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Serve the dashboard card and load it on every dashboard."""
+    """Serve the dashboard card and make sure dashboards load it."""
     version = (await async_get_integration(hass, DOMAIN)).version
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(_CARD_FILE), False)]
     )
     url = f"{CARD_URL}?v={version}"
 
-    @callback
-    def _register(_event=None) -> bool:
+    async def _register(_hass: HomeAssistant) -> None:
+        # 1) Dashboard resource (storage mode) - the reliable way, like HACS cards.
+        if await _async_ensure_lovelace_resource(hass, url):
+            return
+        # 2) Fallback for YAML-mode dashboards: global frontend module.
         try:
             from homeassistant.components.frontend import add_extra_js_url
 
             add_extra_js_url(hass, url)
+            _LOGGER.debug("Dashboard card added as frontend module: %s", url)
         except (ImportError, KeyError):
-            return False
-        _LOGGER.debug("Dashboard card registered: %s", url)
-        return True
+            _LOGGER.warning(
+                "Could not register the dashboard card automatically. Add %s "
+                "as a dashboard resource (JavaScript module)", CARD_URL
+            )
 
-    # The frontend may not be ready yet when this integration loads early.
-    if not _register():
-        _LOGGER.debug("Frontend not ready, registering the card after start")
+    async_at_started(hass, _register)
+    return True
 
-        @callback
-        def _late(_event) -> None:
-            if not _register():
-                _LOGGER.warning(
-                    "Could not register the dashboard card automatically. Add %s "
-                    "as a dashboard resource (JavaScript module) instead", CARD_URL
-                )
 
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _late)
+async def _async_ensure_lovelace_resource(hass: HomeAssistant, url: str) -> bool:
+    """Create or update our entry in the dashboard resources. False if not possible."""
+    data = hass.data.get("lovelace")
+    resources = data.get("resources") if isinstance(data, dict) else getattr(data, "resources", None)
+    if resources is None or not hasattr(resources, "async_create_item"):
+        return False  # YAML mode: resources are read-only
+    try:
+        if not getattr(resources, "loaded", True):
+            await resources.async_load()
+            resources.loaded = True
+        for item in resources.async_items():
+            if str(item.get("url", "")).split("?")[0] == CARD_URL:
+                if item["url"] != url or item.get("type") != "module":
+                    await resources.async_update_item(item["id"], {"res_type": "module", "url": url})
+                    _LOGGER.debug("Dashboard card resource updated to %s", url)
+                return True
+        await resources.async_create_item({"res_type": "module", "url": url})
+        _LOGGER.info("Dashboard card registered as dashboard resource: %s", url)
+    except Exception:  # noqa: BLE001 - never break the integration because of the card
+        _LOGGER.exception("Registering the dashboard card resource failed")
+        return False
     return True
 
 

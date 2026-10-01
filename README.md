@@ -46,7 +46,7 @@ Polling intervals can be changed later under *Configure*.
 
 ## Dashboard card
 
-After installing, edit a dashboard → *Add card* → search for **BYD Battery-Box**. All
+After installing and restarting, reload the browser page once (Ctrl+F5), then edit a dashboard → *Add card* → search for **BYD Battery-Box**. The card registers itself under *Settings → Dashboards → Resources*. All
 options are available in the visual editor. YAML example:
 
 ```yaml
