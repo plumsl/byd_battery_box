@@ -48,6 +48,21 @@
       },
       "cell_average": {
         "default": "mdi:sine-wave"
+      },
+      "relative_capacity": {
+        "default": "mdi:battery-heart"
+      },
+      "current_share": {
+        "default": "mdi:chart-pie"
+      },
+      "weakest_cell": {
+        "default": "mdi:battery-alert-variant-outline"
+      },
+      "internal_resistance": {
+        "default": "mdi:omega"
+      },
+      "last_cycle_energy": {
+        "default": "mdi:battery-sync-outline"
       }
     }
   }

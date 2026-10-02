@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.3.0-beta.1";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 
@@ -41,6 +41,10 @@ const I18N = {
     no_data: "Not enough long-term data yet – statistics are collected from installation onwards.",
     loading: "Loading statistics…", not_found: "No BYD Battery-Box entities found.",
     unavailable: "unavailable", cycles: "Full cycles",
+    capacity: "Capacity", share: "Share", weakest: "weakest cell", ri: "Ri",
+    cap_title: "Relative capacity per BMS (100 % = average, daily mean)",
+    ri_title: "Internal resistance per BMS (experimental, daily mean)",
+    share_title: "Current share per BMS (daily mean)",
   },
   de: {
     title: "BYD Battery-Box", live: "Live", history: "Verlauf", soc: "Ladezustand",
@@ -56,6 +60,10 @@ const I18N = {
     no_data: "Noch zu wenig Langzeitdaten – die Statistik wird ab der Installation gesammelt.",
     loading: "Lade Statistik…", not_found: "Keine Entitäten der BYD Battery-Box gefunden.",
     unavailable: "nicht verfügbar", cycles: "Vollzyklen",
+    capacity: "Kapazität", share: "Anteil", weakest: "auffälligste Zelle", ri: "Ri",
+    cap_title: "Relative Kapazität je BMS (100 % = Durchschnitt, Tagesmittel)",
+    ri_title: "Innenwiderstand je BMS (experimentell, Tagesmittel)",
+    share_title: "Stromanteil je BMS (Tagesmittel)",
   },
 };
 
@@ -129,8 +137,10 @@ ha-card{padding:16px;overflow:hidden}
 .mod{border:1px solid var(--divider-color);border-radius:8px;padding:10px 4px 4px;margin-top:10px;position:relative}
 .mt{position:absolute;top:-9px;left:8px;background:var(--card-background-color);padding:0 4px;font-size:11px;color:var(--secondary-text-color)}
 .cells{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
-.cell{height:74px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;box-sizing:border-box}
+.cell{position:relative;height:74px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;box-sizing:border-box}
 .cell span{writing-mode:vertical-rl;transform:rotate(180deg)}
+.weak::after{content:"";position:absolute;top:3px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:currentColor}
+.health{font-size:12px;color:var(--secondary-text-color);margin-top:2px}
 .temps{display:grid;grid-template-columns:repeat(4,1fr);margin-top:4px;justify-items:center}
 .tp{font-size:11px;padding:1px 6px;border-radius:9px;cursor:pointer}
 .alert{color:var(--error-color,#db4437)}
@@ -231,14 +241,16 @@ class BydBatteryBoxCard extends HTMLElement {
     const balSt = h.states[k.balancing];
     const balCells = (this._config.show_balancing_cells && balSt && balSt.attributes.cells_experimental) || [];
     const alarmOn = b.alarms.some((id) => h.states[id] && h.states[id].state === "on");
+    const weak = num(h, k.weakest_cell);
     const mod = (from, name) => {
       let cells = "";
       for (let i = from; i < from + 8; i++) {
         const v = volts[i], id = b.cells[i];
         const bg = v == null ? "var(--disabled-color,#bdbdbd)" : devColor(v - avg, this._config.scale_mv, c);
         const bal = balCells.includes(i + 1);
-        const tip = `BMS ${b.index} · ${this._t("cell")} ${i + 1}: ${fmt(v)} mV (${v - avg >= 0 ? "+" : ""}${fmt(v - avg)} mV)${bal ? " · " + this._t("balancing") : ""}`;
-        cells += `<div class="cell" data-entity="${id || ""}" data-tip="${esc(tip)}" style="background:${bg};color:${textOn(bg.startsWith("#") ? bg : "#bdbdbd")};${bal ? `box-shadow:inset 0 0 0 2px ${c.balancing}` : ""}"><span>${fmt(v)}</span></div>`;
+        const isWeak = weak === i + 1;
+        const tip = `BMS ${b.index} · ${this._t("cell")} ${i + 1}: ${fmt(v)} mV (${v - avg >= 0 ? "+" : ""}${fmt(v - avg)} mV)${bal ? " · " + this._t("balancing") : ""}${isWeak ? " · " + this._t("weakest") : ""}`;
+        cells += `<div class="cell${isWeak ? " weak" : ""}" data-entity="${id || ""}" data-tip="${esc(tip)}" style="background:${bg};color:${textOn(bg.startsWith("#") ? bg : "#bdbdbd")};${bal ? `box-shadow:inset 0 0 0 2px ${c.balancing}` : ""}"><span>${fmt(v)}</span></div>`;
       }
       const t0 = from === 0 ? 0 : 4;
       let temps = "";
@@ -255,6 +267,7 @@ class BydBatteryBoxCard extends HTMLElement {
       <div class="th" data-entity="${k.soc || ""}"><span class="tn">${alarmOn ? '<span class="alert">⚠ </span>' : ""}BMS ${b.index}</span><span class="lbl">${fmt(soc, 1)} % · ${fmt(cur, 1)} A</span></div>
       <div class="bar"><div style="width:${Math.max(0, Math.min(100, soc || 0))}%"></div></div>
       <div class="lbl" data-entity="${k.cell_spread || ""}">${this._t("spread")} ${fmt(num(h, k.cell_spread))} mV · ${this._t("balancing")} ${fmt(num(h, k.balancing))}</div>
+      ${k.relative_capacity ? `<div class="health" data-entity="${k.relative_capacity}" data-tip="${this._t("capacity")}: ${this._t("cap_title")}">${this._t("capacity")} ${fmt(num(h, k.relative_capacity), 1)} % · ${this._t("share")} ${fmt(num(h, k.current_share), 1)} %${num(h, k.internal_resistance) != null ? ` · ${this._t("ri")} ${fmt(num(h, k.internal_resistance), 1)} mΩ` : ""}</div>` : ""}
       ${this._config.swap_modules ? lower + upper : upper + lower}</div>`;
   }
 
@@ -270,7 +283,7 @@ class BydBatteryBoxCard extends HTMLElement {
     const now = Date.now();
     if (!this._stats || now - this._statsAt > 600000) {
       const ids = new Set([m.bmu.keys.soh]);
-      m.bms.forEach((b) => { [b.keys.soh, b.keys.cell_spread, b.keys.soc, ...b.cells].forEach((id) => id && ids.add(id)); });
+      m.bms.forEach((b) => { [b.keys.soh, b.keys.cell_spread, b.keys.soc, b.keys.relative_capacity, b.keys.current_share, b.keys.internal_resistance, ...b.cells].forEach((id) => id && ids.add(id)); });
       try {
         this._stats = await this._hass.callWS({
           type: "recorder/statistics_during_period",
@@ -296,6 +309,9 @@ class BydBatteryBoxCard extends HTMLElement {
     let html = this._header();
     if (!enough) html += `<div class="lbl" style="margin-bottom:12px">${this._t("no_data")}</div>`;
     html += `<div class="sec"><h3>${this._t("soh_title")}</h3>${chart(soh, "%", 0)}</div>`;
+    html += `<div class="sec"><h3>${this._t("cap_title")}</h3>${chart(series("relative_capacity", "mean", 0), "%", 1)}</div>`;
+    html += `<div class="sec"><h3>${this._t("share_title")}</h3>${chart(series("current_share", "mean", since90), "%", 1)}</div>`;
+    html += `<div class="sec"><h3>${this._t("ri_title")}</h3>${chart(series("internal_resistance", "mean", since90), "mΩ", 1)}</div>`;
     html += `<div class="sec"><h3>${this._t("spread_title")}</h3>${chart(series("cell_spread", "max", since90), "mV", 0)}</div>`;
     html += `<div class="sec"><h3>${this._t("soc_title")}</h3>${chart(series("soc", "mean", since30), "%", 0)}</div>`;
     html += `<div class="sec"><h3>${this._t("heat_title")}</h3><div class="heat">${m.bms.map((b) => this._heat(b, S, since30)).join("")}</div></div>`;

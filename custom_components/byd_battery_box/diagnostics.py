@@ -21,4 +21,5 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: BydConf
         "bmu_status": asdict(rt.status.data) if rt.status.data else None,
         "bms": {k: asdict(v) for k, v in (rt.details.data or {}).items()},
         "raw_frames": rt.client.last_frames,
+        "health": rt.health.state,
     }

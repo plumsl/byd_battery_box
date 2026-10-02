@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .alarms import AlarmManager
+from .health import HealthModel
 from .protocol import BmsData, BmuInfo, BmuStatus, BydClient, BydError
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class BydRuntimeData:
     status: "StatusCoordinator"
     details: "DetailCoordinator"
     alarms: "AlarmManager"
+    health: "HealthModel"
 
 
 type BydConfigEntry = ConfigEntry[BydRuntimeData]

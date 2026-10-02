@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0-beta.1
+- Battery health analysis per BMS (state survives restarts):
+  - **Relative capacity**: energy share of each module between two full charges
+    (parallel modules share the same voltage window, so the share equals the capacity
+    ratio – independent of the BMS' SOC estimate). Until 3 cycles are recorded the
+    lifetime energy counters are used.
+  - **Current share** of each module (capacity plus connection/internal resistance)
+  - **Weakest cell** from cell deviations at the top and bottom of charge
+  - **Internal resistance** from load steps (experimental)
+  - **Energy of the last full-to-full cycle**
+- Card: capacity/share/Ri per BMS, weakest cell marked, new history charts
+
 ## 0.2.1
 - Fix: the dashboard card is now registered automatically as a dashboard resource
   (Settings → Dashboards → Resources), the same way HACS cards are loaded. Existing manual

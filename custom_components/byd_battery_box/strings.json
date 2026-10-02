@@ -129,6 +129,21 @@
       },
       "cell_average": {
         "name": "Average cell voltage"
+      },
+      "relative_capacity": {
+        "name": "Relative capacity"
+      },
+      "current_share": {
+        "name": "Current share"
+      },
+      "weakest_cell": {
+        "name": "Weakest cell"
+      },
+      "internal_resistance": {
+        "name": "Internal resistance"
+      },
+      "last_cycle_energy": {
+        "name": "Energy last cycle"
       }
     },
     "binary_sensor": {

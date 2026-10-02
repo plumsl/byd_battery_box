@@ -10,6 +10,8 @@ from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
@@ -29,6 +31,7 @@ from .const import (
     MIN_STATUS_INTERVAL,
 )
 from .coordinator import BydConfigEntry, BydRuntimeData, DetailCoordinator, StatusCoordinator
+from .health import HealthModel
 from .protocol import BydClient, BydError
 
 _LOGGER = logging.getLogger(__name__)
@@ -112,17 +115,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry) -> bool:
     )
     alarms = AlarmManager(hass, entry.entry_id, info.serial, dict(entry.options), info.bms_count)
 
+    store: Store = Store(hass, 1, f"{DOMAIN}.health.{info.serial}")
+    health = HealthModel(await store.async_load())
+    last_seen: dict = {}
+
+    @callback
+    def _update_health() -> None:
+        data = details.data
+        if not details.last_update_success or not data or last_seen.get("data") is data:
+            return
+        last_seen["data"] = data
+        health.update(dt_util.utcnow(), data)
+        store.async_delay_save(lambda: health.state, 120)
+
     # Alarms are evaluated before the entities are refreshed (registered first).
     entry.async_on_unload(status.async_add_listener(callback(lambda: alarms.update_status(status.data))))
     entry.async_on_unload(details.async_add_listener(callback(lambda: alarms.update_bms(details.data))))
+    entry.async_on_unload(details.async_add_listener(_update_health))
     entry.async_on_unload(alarms.clear_issues)
 
     await status.async_config_entry_first_refresh()
     await details.async_config_entry_first_refresh()
     alarms.update_status(status.data)
     alarms.update_bms(details.data)
+    _update_health()
 
-    entry.runtime_data = BydRuntimeData(client, info, status, details, alarms)
+    entry.runtime_data = BydRuntimeData(client, info, status, details, alarms, health)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

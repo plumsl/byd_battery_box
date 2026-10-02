@@ -17,6 +17,9 @@ BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware
 - One device per BMS, linked to the BMU device – like in *Be Connect Plus*.
 - **Derived values**: remaining energy, usable capacity (from SOH), full cycles, SOC spread
   between the BMS, system-wide cell spread, average cell voltage.
+- **Battery health analysis**: relative capacity of every module (from its energy share
+  between full charges), current share, weakest cell and an experimental internal
+  resistance estimate – see below.
 - **Alarms** with adjustable thresholds (cell over/undervoltage, cell spread – separate limit
   for a full battery –, temperature, SOC imbalance, BMU/BMS fault flags). They show up as
   *problem* binary sensors and under *Settings → Repairs*, and clear themselves.
@@ -70,6 +73,17 @@ Click on any cell, temperature or value to open its history.
 
 Long-term charts use Home Assistant's statistics, which are collected from installation
 onwards – the history view fills up over time.
+
+## Battery health analysis
+
+| Sensor | How it is determined |
+|---|---|
+| Relative capacity | All BMS modules are connected in parallel and see the same voltage. Between two full charges every module runs through the same voltage window, so the energy it delivers is proportional to its usable capacity. 100 % = average of all modules. Uses the last 10 cycles with at least 20 % depth; until 3 cycles are recorded, the lifetime energy counters are used (attribute `source`). |
+| Current share | Share of the total current (samples above 15 A). Lower than the capacity share → higher internal or connection resistance. |
+| Weakest cell | A low-capacity cell rises first at the top of charge and drops first near the bottom. Deviations at SOC ≥ 98 % and ≤ 25 % are averaged; at least 3 snapshots are needed. |
+| Internal resistance | Experimental: voltage change per current step between two measurements (SOC 25–85 %). Absolute values include cabling; use the trend. |
+
+The analysis state is stored in `.storage` and survives restarts.
 
 ## Important notes
 

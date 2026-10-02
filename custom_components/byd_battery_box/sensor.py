@@ -270,7 +270,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
             ), serial, index, device)
             for t in range(TEMPS_PER_BMS)
         ]
+    entities.append(HealthSensor(rt.details, rt.health, "last_cycle_energy", serial, 0, bmu_device,
+                                 lambda h, d, i: h.last_cycle(), unit=KWH, precision=1))
+    for index in range(1, rt.info.bms_count + 1):
+        device = bms_device_info(hass, entry, rt, index)
+        entities += [
+            HealthSensor(rt.details, rt.health, "relative_capacity", serial, index, device,
+                         lambda h, d, i: h.relative_capacity(i, d), unit=PERCENTAGE, precision=1),
+            HealthSensor(rt.details, rt.health, "current_share", serial, index, device,
+                         lambda h, d, i: h.current_share(i), unit=PERCENTAGE, precision=1),
+            HealthSensor(rt.details, rt.health, "weakest_cell", serial, index, device,
+                         lambda h, d, i: h.weakest_cell(i), numeric=False),
+            HealthSensor(rt.details, rt.health, "internal_resistance", serial, index, device,
+                         lambda h, d, i: h.internal_resistance(i), unit="mΩ", precision=1),
+        ]
     async_add_entities(entities)
+
+
+class HealthSensor(CoordinatorEntity, SensorEntity):
+    """Derived battery-health values (see health.py)."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, model, key, serial, index, device, fn, *,
+                 unit=None, precision=None, numeric=True) -> None:
+        super().__init__(coordinator)
+        self._model, self._index, self._fn = model, index, fn
+        self._attr_translation_key = key
+        scope = "" if index == 0 else f"bms{index}_"
+        self._attr_unique_id = f"{serial}_{scope}{key}"
+        self._attr_device_info = device
+        self._attr_native_unit_of_measurement = unit
+        self._attr_suggested_display_precision = precision
+        if numeric:
+            self._attr_state_class = M
+
+    def _result(self):
+        return self._fn(self._model, self.coordinator.data or {}, self._index)
+
+    @property
+    def native_value(self):
+        return self._result()[0]
+
+    @property
+    def extra_state_attributes(self):
+        attrs = dict(self._result()[1])
+        if self._index:
+            attrs["bms"] = self._index
+        return attrs or None
 
 
 class BmuSensor(CoordinatorEntity, SensorEntity):

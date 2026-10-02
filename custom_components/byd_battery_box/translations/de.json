@@ -129,6 +129,21 @@
       },
       "cell_average": {
         "name": "Mittlere Zellspannung"
+      },
+      "relative_capacity": {
+        "name": "Relative Kapazität"
+      },
+      "current_share": {
+        "name": "Stromanteil"
+      },
+      "weakest_cell": {
+        "name": "Auffälligste Zelle"
+      },
+      "internal_resistance": {
+        "name": "Innenwiderstand"
+      },
+      "last_cycle_energy": {
+        "name": "Energie letzter Zyklus"
       }
     },
     "binary_sensor": {
