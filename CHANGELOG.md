@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0-beta.2
+- New card `custom:byd-battery-health-card`: health analysis per module with traffic light,
+  plain-language assessment, capacity bar around 100 %, 90-day trend, current share vs.
+  expected share, internal resistance and weakest cell
+- New card `custom:byd-battery-compact-card` for smartphones: SOC ring, power, remaining
+  time to empty/full, traffic light and 48-cell strip per BMS; tap opens the full card
+- Current share is now averaged over ~2 days (it varies with SOC during a cycle)
+
 ## 0.3.0-beta.1
 - Battery health analysis per BMS (state survives restarts):
   - **Relative capacity**: energy share of each module between two full charges

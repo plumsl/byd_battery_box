@@ -68,6 +68,26 @@ colors:
   warm: "#D85A30"     # 40 °C and above
 ```
 
+### Health card and compact card
+
+Two more cards come with the integration:
+
+```yaml
+type: custom:byd-battery-health-card     # health analysis with traffic light and assessment
+```
+
+```yaml
+type: custom:byd-battery-compact-card    # for smartphones, tap opens the full card
+power_entity: sensor.my_inverter_battery_power   # optional, faster than the BMU value
+power_invert: false                      # set true if your sensor is negative when discharging
+reserve_soc: 10                          # discharge limit used for "empty in …"
+```
+
+The health assessment flags: capacity more than 3 % (warning) / 6 % (problem) from the
+average, a current share more than 2 / 4 points below the capacity share, internal
+resistance more than 20 / 50 % above the other modules, a weakest cell deviating more than
+15 / 30 mV at the end of charge, and a capacity drop of more than 1.5 / 3 points in 90 days.
+
 A complete example dashboard is in [`examples/dashboard.yaml`](examples/dashboard.yaml).
 Click on any cell, temperature or value to open its history.
 

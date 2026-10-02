@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.3.0-beta.1";
+const CARD_VERSION = "0.3.0-beta.2";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 
@@ -116,7 +116,7 @@ function discover(hass, wantedDevice) {
 /* ---------- styles ---------- */
 const STYLE = `
 :host{display:block}
-ha-card{padding:16px;overflow:hidden}
+ha-card{display:block;padding:16px;overflow:hidden}
 .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
 .ttl{font-size:18px;font-weight:500;color:var(--primary-text-color)}
 .tabs{display:flex;gap:4px;background:var(--secondary-background-color);border-radius:8px;padding:3px}
@@ -416,9 +416,349 @@ class BydBatteryBoxCardEditor extends HTMLElement {
   _fire(config) { this._config = config; this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true })); }
 }
 
+/* =====================================================================
+ * Health assessment (shared by the health card and the compact card)
+ * ===================================================================== */
+const HEALTH_I18N = {
+  en: {
+    health_title: "Battery health", soh: "Health (SOH)", cycles: "Full cycles", usable: "Usable capacity",
+    last_cycle: "Last cycle", depth: "depth", rel_cap: "Relative capacity", cur_share: "Current share",
+    expected: "expected", ri: "Internal resistance", weakest: "Weakest cell", trend: "Capacity trend (90 days)",
+    collecting: "collecting data", of: "of", full_charges: "full charges", load_steps: "load steps",
+    src_cycles: "from {n} full cycles", src_lifetime: "from lifetime counters",
+    ok: "Everything inconspicuous.", cap_avg: "Capacity on average.",
+    cap_dev: "Capacity {v} % {dir} average.", below: "below", above: "above",
+    share_low: "Takes {v} points less current than its capacity suggests – watch the connection.",
+    ri_high: "Internal resistance {v} % above the other modules.",
+    cell_dev: "Cell {c} deviates by {v} mV at the end of charge.",
+    trend_down: "Capacity is falling ({v} points in 90 days).",
+    no_data: "Not enough data yet.", cell: "Cell", alarm: "Alarm active",
+    empty_in: "empty in", full_in: "full in", idle: "idle", charging: "charging", discharging: "discharging",
+  },
+  de: {
+    health_title: "Batteriezustand", soh: "Gesundheit (SOH)", cycles: "Vollzyklen", usable: "Nutzbare Kapazität",
+    last_cycle: "Letzter Zyklus", depth: "Tiefe", rel_cap: "Relative Kapazität", cur_share: "Stromanteil",
+    expected: "erwartet", ri: "Innenwiderstand", weakest: "Auffälligste Zelle", trend: "Kapazitätstrend (90 Tage)",
+    collecting: "sammelt Daten", of: "von", full_charges: "Vollladungen", load_steps: "Laständerungen",
+    src_cycles: "aus {n} Vollzyklen", src_lifetime: "aus Lebensdauer-Zählern",
+    ok: "Alles unauffällig.", cap_avg: "Kapazität im Durchschnitt.",
+    cap_dev: "Kapazität {v} % {dir} Durchschnitt.", below: "unter", above: "über",
+    share_low: "Nimmt {v} Punkte weniger Strom auf, als die Kapazität erwarten lässt – Anschluss beobachten.",
+    ri_high: "Innenwiderstand {v} % über den anderen Modulen.",
+    cell_dev: "Zelle {c} weicht am Ladeende um {v} mV ab.",
+    trend_down: "Kapazität sinkt ({v} Punkte in 90 Tagen).",
+    no_data: "Noch zu wenig Daten.", cell: "Zelle", alarm: "Alarm aktiv",
+    empty_in: "leer in", full_in: "voll in", idle: "Ruhe", charging: "lädt", discharging: "entlädt",
+  },
+};
+const ht = (hass, k, vars = {}) => {
+  const l = (hass && hass.language || "en").startsWith("de") ? "de" : "en";
+  let s = HEALTH_I18N[l][k] || HEALTH_I18N.en[k] || k;
+  for (const [n, v] of Object.entries(vars)) s = s.replace(`{${n}}`, v);
+  return s;
+};
+const LEVEL_COLOR = ["var(--success-color,#43a047)", "var(--warning-color,#ffa600)", "var(--error-color,#db4437)"];
+const attr = (hass, id, a) => (id && hass.states[id] ? hass.states[id].attributes[a] : undefined);
+
+/* Assess one BMS. trend = change of relative capacity over 90 days (points) or null. */
+function assess(hass, m, b, trend = null) {
+  const k = b.keys, n = m.bms.length;
+  const findings = [];
+  let level = 0, data = false;
+  const bump = (l) => { level = Math.max(level, l); };
+  if (b.alarms.some((id) => hass.states[id] && hass.states[id].state === "on")) { bump(2); findings.push(ht(hass, "alarm")); }
+
+  const cap = num(hass, k.relative_capacity);
+  if (cap != null) {
+    data = true;
+    const d = cap - 100, ad = Math.abs(d);
+    bump(ad <= 3 ? 0 : ad <= 6 ? 1 : 2);
+    findings.push(ad < 1.5 ? ht(hass, "cap_avg")
+      : ht(hass, "cap_dev", { v: fmt(ad, 1), dir: ht(hass, d < 0 ? "below" : "above") }));
+  }
+  const share = num(hass, k.current_share), samples = attr(hass, k.current_share, "samples") || 0;
+  if (share != null && cap != null && samples >= 100) {
+    const diff = share - cap / n;
+    if (diff <= -2) { bump(diff <= -4 ? 2 : 1); findings.push(ht(hass, "share_low", { v: fmt(-diff, 1) })); }
+  }
+  const ri = num(hass, k.internal_resistance);
+  const others = m.bms.filter((o) => o !== b).map((o) => num(hass, o.keys.internal_resistance)).filter((v) => v != null);
+  if (ri != null && others.length) {
+    const avg = others.reduce((s, v) => s + v, 0) / others.length;
+    const rel = 100 * (ri / avg - 1);
+    if (rel > 20) { bump(rel > 50 ? 2 : 1); findings.push(ht(hass, "ri_high", { v: fmt(rel, 0) })); }
+  }
+  const weak = num(hass, k.weakest_cell), score = attr(hass, k.weakest_cell, "score_mv");
+  if (weak != null && score != null && score > 15) {
+    bump(score > 30 ? 2 : 1); findings.push(ht(hass, "cell_dev", { c: weak, v: fmt(score, 0) }));
+  }
+  if (trend != null && trend < -1.5) { bump(trend < -3 ? 2 : 1); findings.push(ht(hass, "trend_down", { v: fmt(trend, 1) })); }
+
+  if (!data) findings.push(ht(hass, "no_data"));
+  else if (level === 0 && findings.length === 1 && findings[0] === ht(hass, "cap_avg")) findings.splice(0, 1, ht(hass, "ok"));
+  return { level, findings };
+}
+
+/* =====================================================================
+ * Health card
+ * ===================================================================== */
+const HEALTH_STYLE = `
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.blk{border:1px solid var(--divider-color);border-radius:12px;padding:10px}
+.bh{display:flex;align-items:center;gap:8px}
+.amp{width:12px;height:12px;border-radius:50%;flex:none}
+.txt{font-size:13px;color:var(--primary-text-color);margin:6px 0 8px;min-height:34px}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-top:1px solid var(--divider-color);cursor:pointer}
+.row span:first-child{color:var(--secondary-text-color)}
+.capbar{position:relative;height:8px;border-radius:4px;background:var(--secondary-background-color);margin:4px 0 2px}
+.capbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--secondary-text-color)}
+.capbar .fill{position:absolute;top:0;bottom:0;border-radius:4px}
+.small{font-size:11px;color:var(--secondary-text-color)}
+`;
+
+class BydBatteryHealthCard extends BydBatteryBoxCard {
+  static getConfigElement() { return document.createElement("byd-battery-health-card-editor"); }
+  getCardSize() { return 7; }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    this._ensureRoot();
+    if (!this._styled) { const st = document.createElement("style"); st.textContent = HEALTH_STYLE; this.shadowRoot.prepend(st); this._styled = true; }
+    if (!this._model) this._model = discover(this._hass, this._config.device_id);
+    const m = this._model, h = this._hass;
+    if (!m) { this._root.innerHTML = `<div class="lbl">${this._t("not_found")}</div>`; return; }
+    this._loadTrend(m);
+    const ids = [...Object.values(m.bmu.keys), ...m.bms.flatMap((b) => [...Object.values(b.keys), ...b.alarms])];
+    const sig = ids.map((id) => (h.states[id] ? h.states[id].state : "")).join("|") + JSON.stringify(this._trend || {});
+    if (sig === this._sig) return;
+    this._sig = sig;
+    const k = m.bmu.keys;
+    const box = (label, value, sub, ent) => `<div class="m" data-entity="${ent || ""}"><div class="ml">${label}</div><div class="mv">${value}</div><div class="ms">${sub || "&nbsp;"}</div></div>`;
+    const depth = attr(h, k.last_cycle_energy, "depth");
+    const nominal = attr(h, k.usable_capacity, "nominal_capacity");
+    const results = m.bms.map((b) => assess(h, m, b, this._trend ? this._trend[b.index] : null));
+    const worst = Math.max(0, ...results.map((r) => r.level));
+    let html = `<div class="top"><div class="ttl">${esc(this._config.title || ht(h, "health_title"))}</div><span class="amp" style="background:${LEVEL_COLOR[worst]}"></span></div>`;
+    html += `<div class="metrics">
+      ${box(ht(h, "soh"), `${fmt(num(h, k.soh))} %`, "", k.soh)}
+      ${box(ht(h, "cycles"), fmt(num(h, k.full_cycles), 0), "", k.full_cycles)}
+      ${box(ht(h, "usable"), `${fmt(num(h, k.usable_capacity), 1)} kWh`, nominal ? `/ ${fmt(nominal, 1)} kWh` : "", k.usable_capacity)}
+      ${box(ht(h, "last_cycle"), `${fmt(num(h, k.last_cycle_energy), 1)} kWh`, depth != null ? `${ht(h, "depth")} ${fmt(depth, 0)} %` : "", k.last_cycle_energy)}</div>`;
+    html += `<div class="grid">${m.bms.map((b, i) => this._block(b, results[i])).join("")}</div>`;
+    this._root.innerHTML = html;
+  }
+
+  _block(b, res) {
+    const h = this._hass, k = b.keys, n = this._model.bms.length;
+    const cap = num(h, k.relative_capacity), src = attr(h, k.relative_capacity, "source");
+    const used = attr(h, k.relative_capacity, "cycles_used") || 0;
+    const d = cap == null ? 0 : Math.max(-10, Math.min(10, cap - 100));
+    const lvl = cap == null ? 0 : Math.abs(cap - 100) <= 3 ? 0 : Math.abs(cap - 100) <= 6 ? 1 : 2;
+    const fill = `left:${d < 0 ? 50 + d * 5 : 50}%;width:${Math.abs(d) * 5}%;background:${LEVEL_COLOR[lvl]}`;
+    const share = num(h, k.current_share);
+    const ri = num(h, k.internal_resistance), riN = attr(h, k.internal_resistance, "samples") || 0;
+    const weak = num(h, k.weakest_cell), wTop = attr(h, k.weakest_cell, "top_snapshots") || 0, score = attr(h, k.weakest_cell, "score_mv");
+    const row = (label, value, ent) => `<div class="row" data-entity="${ent || ""}"><span>${label}</span><span>${value}</span></div>`;
+    const collecting = (have, need, what) => `<span class="small">${ht(h, "collecting")} (${have} ${ht(h, "of")} ${need} ${ht(h, what)})</span>`;
+    const tr = this._trendPts && this._trendPts[b.index];
+    return `<div class="blk">
+      <div class="bh"><span class="amp" style="background:${LEVEL_COLOR[res.level]}"></span><span class="tn">BMS ${b.index}</span></div>
+      <div class="txt">${res.findings.map(esc).join(" ")}</div>
+      <div data-entity="${k.relative_capacity || ""}" style="cursor:pointer">
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--secondary-text-color)">${ht(h, "rel_cap")}</span><span>${fmt(cap, 1)} %</span></div>
+        <div class="capbar"><div class="fill" style="${fill}"></div><div class="mid"></div></div>
+        <div class="small" style="display:flex;justify-content:space-between"><span>90 %</span><span>${src === "cycles" ? ht(h, "src_cycles", { n: used }) : ht(h, "src_lifetime")}</span><span>110 %</span></div>
+      </div>
+      ${tr && tr.length > 1 ? `<div style="margin-top:6px">${spark(tr)}<div class="small">${ht(h, "trend")}</div></div>` : ""}
+      <div style="margin-top:8px">
+      ${row(ht(h, "cur_share"), share == null ? "–" : `${fmt(share, 1)} % <span class="small">(${ht(h, "expected")} ${fmt(cap == null ? 100 / n : cap / n, 1)} %)</span>`, k.current_share)}
+      ${row(ht(h, "ri"), ri == null ? collecting(riN, 5, "load_steps") : `${fmt(ri, 1)} mΩ`, k.internal_resistance)}
+      ${row(ht(h, "weakest"), weak == null ? collecting(wTop, 3, "full_charges") : `${ht(h, "cell")} ${fmt(weak)} <span class="small">(${score >= 0 ? "+" : ""}${fmt(score, 0)} mV)</span>`, k.weakest_cell)}
+      </div></div>`;
+  }
+
+  async _loadTrend(m) {
+    const now = Date.now();
+    if (this._trendLoading || (this._trendAt && now - this._trendAt < 600000)) return;
+    const ids = m.bms.map((b) => b.keys.relative_capacity).filter(Boolean);
+    if (!ids.length || !this._hass.callWS) return;
+    this._trendLoading = true;
+    try {
+      const S = await this._hass.callWS({ type: "recorder/statistics_during_period", start_time: new Date(now - 90 * 864e5).toISOString(), statistic_ids: ids, period: "day", types: ["mean"] });
+      this._trend = {}; this._trendPts = {};
+      m.bms.forEach((b) => {
+        const pts = (S[b.keys.relative_capacity] || []).filter((p) => p.mean != null).map((p) => p.mean);
+        this._trendPts[b.index] = pts;
+        this._trend[b.index] = pts.length >= 14 ? pts[pts.length - 1] - pts[0] : null;
+      });
+    } catch (e) { /* statistics not available yet */ }
+    this._trendAt = now; this._trendLoading = false; this._sig = null; this._render();
+  }
+}
+
+function spark(pts) {
+  const W = 200, H = 32, lo = Math.min(...pts, 97), hi = Math.max(...pts, 103);
+  const X = (i) => (i / (pts.length - 1)) * W, Y = (v) => H - 2 - ((v - lo) / (hi - lo)) * (H - 4);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
+    <line x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" stroke="var(--divider-color)" stroke-dasharray="3 3"/>
+    <polyline fill="none" stroke="var(--primary-color,#03a9f4)" stroke-width="2" points="${pts.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}"/></svg>`;
+}
+
+/* =====================================================================
+ * Compact card (smartphones)
+ * ===================================================================== */
+const COMPACT_STYLE = `
+ha-card{display:block;padding:12px 14px;cursor:pointer}
+.c1{display:flex;align-items:center;gap:14px}
+.ring{position:relative;width:64px;height:64px;flex:none}
+.ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:var(--primary-text-color)}
+.pw{font-size:20px;font-weight:500;color:var(--primary-text-color)}
+.sub{font-size:13px;color:var(--secondary-text-color)}
+.c2{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;margin-top:10px}
+.chip{display:flex;flex-direction:column;gap:4px}
+.cl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color)}
+.dot{width:9px;height:9px;border-radius:50%}
+.strip{display:grid;grid-template-columns:repeat(16,1fr);gap:1px;height:14px}
+.strip i{border-radius:1px}
+`;
+
+class BydBatteryCompactCard extends HTMLElement {
+  static getConfigElement() { return document.createElement("byd-battery-compact-card-editor"); }
+  static getStubConfig() { return {}; }
+  setConfig(config) {
+    this._config = { reserve_soc: 0, power_invert: false, scale_mv: 15, ...config, colors: { ...DEFAULT_COLORS, ...(config.colors || {}) } };
+    this._sig = null; if (this._hass) this._render();
+  }
+  set hass(hass) {
+    this._hass = hass;
+    if (hass.entities !== this._ref) { this._ref = hass.entities; this._model = null; }
+    if (this._popup) this._popup.card.hass = hass;
+    this._render();
+  }
+  getCardSize() { return 3; }
+  getGridOptions() { return { columns: 12, min_columns: 6 }; }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" });
+      this.shadowRoot.innerHTML = `<style>${COMPACT_STYLE}</style><ha-card><div id="c"></div></ha-card>`;
+      this.shadowRoot.querySelector("ha-card").addEventListener("click", () => this._openPopup());
+    }
+    const h = this._hass;
+    if (!this._model) this._model = discover(h, this._config.device_id);
+    const m = this._model, root = this.shadowRoot.getElementById("c");
+    if (!m) { root.textContent = "BYD Battery-Box: –"; return; }
+    const k = m.bmu.keys;
+    const sig = [k.soc, k.power, k.remaining_energy, this._config.power_entity, ...m.bms.flatMap((b) => [...b.cells, ...Object.values(b.keys), ...b.alarms])]
+      .map((id) => (id && h.states[id] ? h.states[id].state : "")).join("|");
+    if (sig === this._sig) return;
+    this._sig = sig;
+
+    const soc = num(h, k.soc);
+    let p = this._config.power_entity ? num(h, this._config.power_entity) : num(h, k.power);
+    if (p != null && this._config.power_invert) p = -p;
+    let dir = ht(h, "idle"), eta = "";
+    if (p != null && Math.abs(p) >= 50) {
+      const rem = num(h, k.remaining_energy), cap = num(h, k.usable_capacity);
+      const reserve = cap != null ? (cap * this._config.reserve_soc) / 100 : 0;
+      const kwh = p > 0 ? (rem != null ? rem - reserve : null) : (rem != null && cap != null ? cap - rem : null);
+      dir = ht(h, p > 0 ? "discharging" : "charging");
+      if (kwh != null && kwh > 0) {
+        const hrs = kwh / (Math.abs(p) / 1000), hh = Math.floor(hrs), mm = Math.round((hrs - hh) * 60);
+        eta = `${ht(h, p > 0 ? "empty_in" : "full_in")} ${hh > 0 ? `${hh} h ` : ""}${mm} min`;
+      }
+    }
+    const r = 28, C = 2 * Math.PI * r, frac = Math.max(0, Math.min(1, (soc || 0) / 100));
+    const ringColor = soc == null ? "var(--disabled-color)" : soc < 20 ? LEVEL_COLOR[2] : soc < 40 ? LEVEL_COLOR[1] : LEVEL_COLOR[0];
+    const ring = `<div class="ring"><svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--secondary-background-color)" stroke-width="6"/>
+      <circle cx="32" cy="32" r="${r}" fill="none" stroke="${ringColor}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 32 32)"/></svg><span>${fmt(soc)} %</span></div>`;
+    const chips = m.bms.map((b) => {
+      const a = assess(h, m, b);
+      const volts = b.cells.map((id) => num(h, id)), ok = volts.filter((v) => v != null);
+      const avg = ok.reduce((s, v) => s + v, 0) / (ok.length || 1);
+      const strip = volts.map((v) => `<i style="background:${v == null ? "var(--disabled-color)" : devColor(v - avg, this._config.scale_mv, this._config.colors)}"></i>`).join("");
+      return `<div class="chip" title="${esc(a.findings.join(" "))}"><div class="cl"><span class="dot" style="background:${LEVEL_COLOR[a.level]}"></span>BMS ${b.index} · ${fmt(num(h, b.keys.soc), 0)} %</div><div class="strip">${strip}</div></div>`;
+    }).join("");
+    root.innerHTML = `<div class="c1">${ring}<div><div class="pw">${p == null ? "–" : fmt(Math.abs(p))} W</div><div class="sub">${dir}${eta ? " · " + eta : ""}</div></div></div><div class="c2">${chips}</div>`;
+  }
+
+  _openPopup() {
+    if (this._popup) return;
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(12px,env(safe-area-inset-top)) 8px 12px";
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "position:relative;width:100%;max-width:900px";
+    const close = document.createElement("button");
+    close.textContent = "✕";
+    close.setAttribute("aria-label", "Close");
+    close.style.cssText = "position:absolute;top:8px;right:8px;z-index:1;border:0;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;background:var(--secondary-background-color);color:var(--primary-text-color)";
+    const card = document.createElement(CARD_TYPE);
+    card.setConfig({ ...(this._config.popup_card || {}), colors: this._config.colors, scale_mv: this._config.scale_mv });
+    card.hass = this._hass;
+    wrap.append(close, card); overlay.append(wrap); document.body.append(overlay);
+    const done = () => { overlay.remove(); document.removeEventListener("keydown", esc_); this._popup = null; };
+    const esc_ = (e) => { if (e.key === "Escape") done(); };
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(); });
+    close.addEventListener("click", done);
+    document.addEventListener("keydown", esc_);
+    // more-info from inside the popup: forward to Home Assistant's root element
+    overlay.addEventListener("hass-more-info", (e) => {
+      const ha = document.querySelector("home-assistant");
+      if (ha && e.target !== ha) { e.stopPropagation(); done(); ha.dispatchEvent(new CustomEvent("hass-more-info", { detail: e.detail, bubbles: true, composed: true })); }
+    });
+    this._popup = { overlay, card };
+  }
+}
+
+/* ---------- simple editors for the two additional cards ---------- */
+class BydSimpleEditor extends HTMLElement {
+  set hass(hass) { this._hass = hass; this._build(); }
+  setConfig(config) { this._config = { ...config }; this._build(true); }
+  _build(sync) {
+    if (!this._config || !this._hass) return;
+    const l = (this._hass.language || "en").startsWith("de") ? "de" : "en";
+    if (!this._built) {
+      this._built = true;
+      this.innerHTML = this.constructor.FIELDS.map(([key, type, label]) =>
+        `<label style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0"><span>${label[l]}</span><input data-key="${key}" type="${type}" ${type === "number" ? 'style="width:80px"' : 'style="flex:1;max-width:260px"'}></label>`).join("");
+      this.querySelectorAll("input").forEach((el) => el.addEventListener("change", () => {
+        const c = { ...this._config }, key = el.dataset.key;
+        if (el.type === "checkbox") c[key] = el.checked;
+        else if (el.type === "number") c[key] = Number(el.value) || 0;
+        else if (el.value) c[key] = el.value; else delete c[key];
+        this._config = c;
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: c }, bubbles: true, composed: true }));
+      }));
+      sync = true;
+    }
+    if (sync) this.querySelectorAll("input").forEach((el) => {
+      const v = this._config[el.dataset.key];
+      if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
+    });
+  }
+}
+class BydHealthEditor extends BydSimpleEditor {}
+BydHealthEditor.FIELDS = [["title", "text", { de: "Titel", en: "Title" }]];
+class BydCompactEditor extends BydSimpleEditor {}
+BydCompactEditor.FIELDS = [
+  ["power_entity", "text", { de: "Schnellerer Leistungssensor (optional, z. B. Sunny Island)", en: "Faster power sensor (optional, e.g. inverter)" }],
+  ["power_invert", "checkbox", { de: "Vorzeichen des Leistungssensors umkehren", en: "Invert sign of the power sensor" }],
+  ["reserve_soc", "number", { de: "Entladegrenze für Restlaufzeit (%)", en: "Discharge limit for remaining time (%)" }],
+];
+
 if (!customElements.get(CARD_TYPE)) customElements.define(CARD_TYPE, BydBatteryBoxCard);
 if (!customElements.get(`${CARD_TYPE}-editor`)) customElements.define(`${CARD_TYPE}-editor`, BydBatteryBoxCardEditor);
 window.customCards = window.customCards || [];
 if (!window.customCards.some((c) => c.type === CARD_TYPE))
   window.customCards.push({ type: CARD_TYPE, name: "BYD Battery-Box", description: "Cells, temperatures and history of a BYD Battery-Box", preview: true, documentationURL: "https://github.com/plumsl/byd_battery_box" });
+for (const [type, cls, editor, name, description] of [
+  ["byd-battery-health-card", BydBatteryHealthCard, BydHealthEditor, "BYD Battery-Box – Zustand", "Health analysis per module with assessment"],
+  ["byd-battery-compact-card", BydBatteryCompactCard, BydCompactEditor, "BYD Battery-Box – Kompakt", "Compact card for smartphones, opens the full card"],
+]) {
+  if (!customElements.get(type)) customElements.define(type, cls);
+  if (!customElements.get(`${type}-editor`)) customElements.define(`${type}-editor`, editor);
+  if (!window.customCards.some((c) => c.type === type))
+    window.customCards.push({ type, name, description, preview: true, documentationURL: "https://github.com/plumsl/byd_battery_box" });
+}
 console.info(`%c BYD-BATTERY-BOX-CARD %c ${CARD_VERSION} `, "background:#1D9E75;color:#fff", "background:#444;color:#fff");

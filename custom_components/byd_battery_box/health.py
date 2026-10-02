@@ -31,7 +31,7 @@ TOP_SOC = 98.0           # snapshot "top of charge"
 BOTTOM_SOC = 25.0        # snapshot "bottom"
 EMA_ALPHA = 0.1
 SHARE_MIN_CURRENT = 15.0  # A, total current needed for a current-share sample
-SHARE_ALPHA = 0.02
+SHARE_WINDOW = 250        # samples (~2 days); the share changes with SOC, so average over full cycles
 
 R_SOC_MIN, R_SOC_MAX = 25.0, 85.0
 R_MIN_STEP = 8.0          # A per BMS
@@ -135,8 +135,10 @@ class HealthModel:
             s = self.state["share"].setdefault(str(i), {"ema": None, "n": 0, "last": None})
             share = 100 * b.current / total
             s["last"] = round(share, 2)
-            s["ema"] = share if s["ema"] is None else s["ema"] + SHARE_ALPHA * (share - s["ema"])
             s["n"] += 1
+            # running mean first, then an exponential average over ~SHARE_WINDOW samples
+            weight = 1 / min(s["n"], SHARE_WINDOW)
+            s["ema"] = share if s["ema"] is None else s["ema"] + weight * (share - s["ema"])
 
     def _resistance(self, now: datetime, bms: dict[int, Any]) -> None:
         for i, b in bms.items():

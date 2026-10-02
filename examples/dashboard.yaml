@@ -12,6 +12,11 @@ views:
       - type: grid
         column_span: 4
         cards:
+          - type: custom:byd-battery-compact-card
+            reserve_soc: 10
           - type: custom:byd-battery-box-card
+            grid_options:
+              columns: full
+          - type: custom:byd-battery-health-card
             grid_options:
               columns: full
