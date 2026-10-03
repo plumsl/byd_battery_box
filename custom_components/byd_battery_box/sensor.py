@@ -155,8 +155,10 @@ BMS_SENSORS: tuple[BydSensorDescription, ...] = (
                          state_class=SensorStateClass.TOTAL_INCREASING, suggested_display_precision=1,
                          value_fn=lambda b: b.discharge_energy),
     BydSensorDescription(key="status", translation_key="status",
-                         value_fn=lambda b: _status_text(b.status),
+                         value_fn=lambda b: _status_text(b.status) if b.status or not b.status_info
+                         else ", ".join(b.status_info),
                          attr_fn=lambda b: {"status_code": b.status_code, "flags": b.status,
+                                            "info": b.status_info,
                                             "firmware_raw": b.firmware_raw, **b.extra}),
 )
 

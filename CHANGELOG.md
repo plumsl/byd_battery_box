@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0-beta.3
+- Fix: BMS status bit 2 is the normal end-of-charge state (highest cell ~3.50 V, charging
+  stopped until the next discharge), not a cell overvoltage fault. It no longer triggers the
+  "BMS fault" alarm and is shown as "Charge stop: cell voltage high" (attribute `info`).
+
 ## 0.3.0-beta.2
 - New card `custom:byd-battery-health-card`: health analysis per module with traffic light,
   plain-language assessment, capacity bar around 100 %, 90-day trend, current share vs.

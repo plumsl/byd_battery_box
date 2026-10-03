@@ -100,7 +100,7 @@ class AlarmManager:
             self._set(i, "temperature_low",
                       _hyst(st("temperature_low"), b.min_temp, o[CONF_TEMP_LOW], 2, False),
                       {"value": b.min_temp, "sensor": b.min_temp_no, "limit": o[CONF_TEMP_LOW]})
-            self._set(i, "bms_fault", b.status_code != 0,
+            self._set(i, "bms_fault", bool(b.status),
                       {"status_code": b.status_code, "flags": b.status})
         socs = [b.soc for b in data.values()]
         diff = round(max(socs) - min(socs), 1) if len(socs) > 1 else 0

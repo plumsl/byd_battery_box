@@ -48,7 +48,7 @@ BMU_ERRORS = (
 BMS_STATUS_BITS = (
     "Battery overvoltage",
     "Battery undervoltage",
-    "Cell overvoltage",
+    "Charge stop: cell voltage high",
     "Cell undervoltage",
     "Cell imbalance",
     "Charging high temperature",
@@ -63,6 +63,11 @@ BMS_STATUS_BITS = (
     "Interlock switch abnormal",
     "Air switch abnormal",
 )
+
+# Bits that are normal operating states, not faults. Bit 2 is set by every BMS when the
+# highest cell reaches ~3.50 V at the end of charge; it stays set until discharging starts
+# (verified on a Battery-Box LVL, Be Connect shows "Normal" meanwhile).
+BMS_INFO_BITS = (2,)
 
 LV_INVERTERS = (
     "Fronius HV", "Goodwe HV", "Goodwe HV", "Kostal HV", "Selectronic LV",
@@ -225,6 +230,7 @@ class BmsData:
     discharge_energy: float
     status_code: int
     status: list[str]
+    status_info: list[str]
     firmware_raw: str
     cell_voltages: list[int]
     temperatures: list[int]
@@ -323,7 +329,8 @@ def parse_bms(index: int, blocks: list[bytes]) -> BmsData:
         soh=_s16(b1, 55),
         current=_s16(b1, 57) / 10,
         status_code=status_code,
-        status=_bits(status_code, BMS_STATUS_BITS),
+        status=_bits(status_code & ~sum(1 << b for b in BMS_INFO_BITS), BMS_STATUS_BITS),
+        status_info=_bits(status_code & sum(1 << b for b in BMS_INFO_BITS), BMS_STATUS_BITS),
         firmware_raw=b1[65:69].hex(),
         cell_voltages=cells,
         temperatures=temps,

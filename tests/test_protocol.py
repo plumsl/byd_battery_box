@@ -149,3 +149,19 @@ def test_client_against_fragmenting_fake_bmu():
     assert info.bms_count == 3
     assert sorted(bms) == [1, 2, 3]
     assert bms[3].temperatures[0] == 26
+
+
+def test_charge_stop_bit_is_not_a_fault():
+    """Status 0x0004 appears at every full charge (cell ~3.5 V) and is informational."""
+    blocks = bms_blocks(1)
+    b1 = bytearray(blocks[0])
+    b1[59], b1[60] = 0x00, 0x04
+    b1[-2:] = protocol.crc16_modbus(bytes(b1[:-2])).to_bytes(2, "little")
+    blocks[0] = bytes(b1)
+    bms = protocol.parse_bms(1, blocks)
+    assert bms.status_code == 4
+    assert bms.status == []
+    assert bms.status_info == ["Charge stop: cell voltage high"]
+    b1[59], b1[60] = 0x00, 0x05  # plus battery overvoltage -> fault
+    blocks[0] = bytes(b1)
+    assert protocol.parse_bms(1, blocks).status == ["Battery overvoltage"]
