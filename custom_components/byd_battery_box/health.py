@@ -35,8 +35,8 @@ SHARE_WINDOW = 250        # samples (~2 days); the share changes with SOC, so av
 
 R_SOC_MIN, R_SOC_MAX = 25.0, 85.0
 R_MIN_STEP = 8.0          # A per BMS
-R_MAX_GAP = timedelta(minutes=12)
-R_MAX_SOC_DRIFT = 1.0
+R_MAX_GAP = timedelta(minutes=16)  # works with cell-data intervals up to 15 min
+R_MAX_SOC_DRIFT = 3.0     # % SOC between the two samples (10 min at 0.1 C is ~2 %)
 R_SAMPLES_KEPT = 100
 R_MIN_SAMPLES = 5
 MIN_SNAPSHOTS = 3

@@ -1,29 +1,21 @@
 # Changelog
 
-## 0.3.0-beta.3
-- Fix: BMS status bit 2 is the normal end-of-charge state (highest cell ~3.50 V, charging
-  stopped until the next discharge), not a cell overvoltage fault. It no longer triggers the
-  "BMS fault" alarm and is shown as "Charge stop: cell voltage high" (attribute `info`).
-
-## 0.3.0-beta.2
-- New card `custom:byd-battery-health-card`: health analysis per module with traffic light,
-  plain-language assessment, capacity bar around 100 %, 90-day trend, current share vs.
-  expected share, internal resistance and weakest cell
-- New card `custom:byd-battery-compact-card` for smartphones: SOC ring, power, remaining
-  time to empty/full, traffic light and 48-cell strip per BMS; tap opens the full card
-- Current share is now averaged over ~2 days (it varies with SOC during a cycle)
-
-## 0.3.0-beta.1
-- Battery health analysis per BMS (state survives restarts):
-  - **Relative capacity**: energy share of each module between two full charges
-    (parallel modules share the same voltage window, so the share equals the capacity
-    ratio – independent of the BMS' SOC estimate). Until 3 cycles are recorded the
-    lifetime energy counters are used.
-  - **Current share** of each module (capacity plus connection/internal resistance)
-  - **Weakest cell** from cell deviations at the top and bottom of charge
-  - **Internal resistance** from load steps (experimental)
-  - **Energy of the last full-to-full cycle**
-- Card: capacity/share/Ri per BMS, weakest cell marked, new history charts
+## 0.3.0
+- **Battery health analysis** per BMS (state survives restarts): relative capacity from the
+  energy share between full charges, current share, weakest cell, internal resistance
+  (experimental) and the energy of the last full-to-full cycle
+- **Health card** `custom:byd-battery-health-card` with traffic light, plain-language
+  assessment, capacity bar, 90-day trend
+- **Compact card** `custom:byd-battery-compact-card` for smartphones: SOC ring, power,
+  remaining time, traffic light and cell strip per BMS; tap opens the full card as a popup
+- Live card: capacity/share/Ri per BMS, weakest cell marked, new history charts,
+  three-step temperature colours (configurable neutral colour)
+- Fix: BMS status bit 2 is the normal end-of-charge state ("Charge stop: cell voltage high"),
+  not a fault – no more false "BMS fault" alarms on full charge
+- Internal resistance: works with cell-data intervals up to 15 min
+- Current share is averaged over ~2 days
+- Popup close button no longer covers the view switch; heatmap labels no longer overlap
+- Bilingual wiki: https://github.com/plumsl/byd_battery_box/wiki
 
 ## 0.2.1
 - Fix: the dashboard card is now registered automatically as a dashboard resource

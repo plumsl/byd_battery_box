@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.3.0-beta.3";
+const CARD_VERSION = "0.3.0";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 
@@ -336,7 +336,7 @@ class BydBatteryBoxCard extends HTMLElement {
         rects += `<rect x="${(lw + x * cw).toFixed(1)}" y="${(15 - r) * rowH}" width="${Math.max(cw - 0.5, 0.5).toFixed(1)}" height="${rowH - 1}" fill="${devColor(d, this._config.scale_mv, this._config.colors)}"><title>${this._t("cell")} ${r + 1} · ${new Date(t).toLocaleDateString()}: ${d >= 0 ? "+" : ""}${d.toFixed(1)} mV</title></rect>`;
       }
     });
-    const labels = [16, 9, 8, 1].map((n) => `<text x="0" y="${(16 - n) * rowH + 8}">Z${n}</text>`).join("");
+    const labels = `<text x="0" y="${4 * rowH + 4}">B2</text><text x="0" y="${12 * rowH + 4}">B1</text>`;
     return `<div><div class="lbl">BMS ${b.index}</div><svg viewBox="0 0 ${W} ${16 * rowH + 2}" width="100%">${labels}<line x1="${lw}" x2="${W}" y1="${8 * rowH - 0.5}" y2="${8 * rowH - 0.5}" stroke="var(--divider-color)"/>${rects}</svg></div>`;
   }
 }
@@ -433,6 +433,7 @@ const HEALTH_I18N = {
     cell_dev: "Cell {c} deviates by {v} mV at the end of charge.",
     trend_down: "Capacity is falling ({v} points in 90 days).",
     no_data: "Not enough data yet.", cell: "Cell", alarm: "Alarm active",
+    cycle_running: "until the next full charge",
     empty_in: "empty in", full_in: "full in", idle: "idle", charging: "charging", discharging: "discharging",
   },
   de: {
@@ -448,6 +449,7 @@ const HEALTH_I18N = {
     cell_dev: "Zelle {c} weicht am Ladeende um {v} mV ab.",
     trend_down: "Kapazität sinkt ({v} Punkte in 90 Tagen).",
     no_data: "Noch zu wenig Daten.", cell: "Zelle", alarm: "Alarm aktiv",
+    cycle_running: "bis zur nächsten Vollladung",
     empty_in: "leer in", full_in: "voll in", idle: "Ruhe", charging: "lädt", discharging: "entlädt",
   },
 };
@@ -543,7 +545,9 @@ class BydBatteryHealthCard extends BydBatteryBoxCard {
       ${box(ht(h, "soh"), `${fmt(num(h, k.soh))} %`, "", k.soh)}
       ${box(ht(h, "cycles"), fmt(num(h, k.full_cycles), 0), "", k.full_cycles)}
       ${box(ht(h, "usable"), `${fmt(num(h, k.usable_capacity), 1)} kWh`, nominal ? `/ ${fmt(nominal, 1)} kWh` : "", k.usable_capacity)}
-      ${box(ht(h, "last_cycle"), `${fmt(num(h, k.last_cycle_energy), 1)} kWh`, depth != null ? `${ht(h, "depth")} ${fmt(depth, 0)} %` : "", k.last_cycle_energy)}</div>`;
+      ${num(h, k.last_cycle_energy) == null
+        ? box(ht(h, "last_cycle"), `<span class="small">${ht(h, "collecting")}</span>`, ht(h, "cycle_running"), k.last_cycle_energy)
+        : box(ht(h, "last_cycle"), `${fmt(num(h, k.last_cycle_energy), 1)} kWh`, depth != null ? `${ht(h, "depth")} ${fmt(depth, 0)} %` : "", k.last_cycle_energy)}</div>`;
     html += `<div class="grid">${m.bms.map((b, i) => this._block(b, results[i])).join("")}</div>`;
     this._root.innerHTML = html;
   }
@@ -688,11 +692,11 @@ class BydBatteryCompactCard extends HTMLElement {
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(12px,env(safe-area-inset-top)) 8px 12px";
     const wrap = document.createElement("div");
-    wrap.style.cssText = "position:relative;width:100%;max-width:900px";
+    wrap.style.cssText = "position:relative;width:100%;max-width:900px;padding-top:44px";
     const close = document.createElement("button");
     close.textContent = "✕";
     close.setAttribute("aria-label", "Close");
-    close.style.cssText = "position:absolute;top:8px;right:8px;z-index:1;border:0;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;background:var(--secondary-background-color);color:var(--primary-text-color)";
+    close.style.cssText = "position:absolute;top:0;right:0;z-index:1;border:0;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;background:var(--secondary-background-color);color:var(--primary-text-color)";
     const card = document.createElement(CARD_TYPE);
     card.setConfig({ ...(this._config.popup_card || {}), colors: this._config.colors, scale_mv: this._config.scale_mv });
     card.hass = this._hass;

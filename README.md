@@ -5,6 +5,8 @@ BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware
 
 ![Dashboard card: three LVL batteries side by side with every cell and temperature sensor](https://raw.githubusercontent.com/plumsl/byd_battery_box/main/docs/images/card-live.png)
 
+> 📖 Full documentation in English and German: **[Wiki](https://github.com/plumsl/byd_battery_box/wiki)**
+>
 > 🇩🇪 Deutsche Kurzanleitung weiter unten.
 
 ## Features
