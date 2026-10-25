@@ -1,0 +1,69 @@
+{
+  "entity": {
+    "sensor": {
+      "soh": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "status": {
+        "default": "mdi:shield-check"
+      },
+      "cell_spread": {
+        "default": "mdi:arrow-expand-vertical"
+      },
+      "balancing": {
+        "default": "mdi:scale-balance"
+      },
+      "efficiency": {
+        "default": "mdi:percent-circle"
+      },
+      "inverter": {
+        "default": "mdi:solar-power"
+      },
+      "bms_count": {
+        "default": "mdi:counter"
+      },
+      "pt_version": {
+        "default": "mdi:information-outline"
+      },
+      "charge_energy": {
+        "default": "mdi:battery-plus"
+      },
+      "discharge_energy": {
+        "default": "mdi:battery-minus"
+      },
+      "remaining_energy": {
+        "default": "mdi:battery-clock"
+      },
+      "usable_capacity": {
+        "default": "mdi:battery-high"
+      },
+      "full_cycles": {
+        "default": "mdi:battery-sync"
+      },
+      "soc_spread": {
+        "default": "mdi:approximately-equal"
+      },
+      "system_cell_spread": {
+        "default": "mdi:arrow-expand-vertical"
+      },
+      "cell_average": {
+        "default": "mdi:sine-wave"
+      },
+      "relative_capacity": {
+        "default": "mdi:battery-heart"
+      },
+      "current_share": {
+        "default": "mdi:chart-pie"
+      },
+      "weakest_cell": {
+        "default": "mdi:battery-alert-variant-outline"
+      },
+      "internal_resistance": {
+        "default": "mdi:omega"
+      },
+      "last_cycle_energy": {
+        "default": "mdi:battery-sync-outline"
+      }
+    }
+  }
+}
