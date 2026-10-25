@@ -3,7 +3,7 @@
  * Shipped with the byd_battery_box integration – no separate installation needed.
  * https://github.com/plumsl/byd_battery_box
  */
-const CARD_VERSION = "0.3.1";
+const CARD_VERSION = "0.3.2";
 const DOMAIN = "byd_battery_box";
 const CARD_TYPE = "byd-battery-box-card";
 
@@ -435,6 +435,7 @@ const HEALTH_I18N = {
     no_data: "Not enough data yet.", cell: "Cell", alarm: "Alarm active",
     cycle_running: "until the next full charge",
     empty_in: "empty in", full_in: "full in", idle: "idle", charging: "charging", discharging: "discharging",
+    soh_short: "Health", temperature: "Temperature", remaining: "Remaining",
   },
   de: {
     health_title: "Batteriezustand", soh: "Gesundheit (SOH)", cycles: "Vollzyklen", usable: "Nutzbare Kapazität",
@@ -451,6 +452,7 @@ const HEALTH_I18N = {
     no_data: "Noch zu wenig Daten.", cell: "Zelle", alarm: "Alarm aktiv",
     cycle_running: "bis zur nächsten Vollladung",
     empty_in: "leer in", full_in: "voll in", idle: "Ruhe", charging: "lädt", discharging: "entlädt",
+    soh_short: "Gesundheit", temperature: "Temperatur", remaining: "Restenergie",
   },
 };
 const ht = (hass, k, vars = {}) => {
@@ -612,8 +614,13 @@ function spark(pts) {
  * Compact card (smartphones)
  * ===================================================================== */
 const COMPACT_STYLE = `
-ha-card{display:block;padding:12px 14px;cursor:pointer}
+ha-card{display:block;padding:12px 14px;cursor:pointer;container-type:inline-size}
 .c1{display:flex;align-items:center;gap:14px}
+.stats{margin-left:auto;display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:1px solid var(--divider-color)}
+.st{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color)}
+.st ha-icon{--mdc-icon-size:16px;color:var(--state-icon-color,var(--secondary-text-color))}
+.st b{margin-left:auto;padding-left:8px;font-size:13px;font-weight:500;color:var(--primary-text-color);white-space:nowrap}
+@container (max-width:360px){.st .l{display:none}}
 .ring{position:relative;width:64px;height:64px;flex:none}
 .ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:var(--primary-text-color)}
 .pw{font-size:20px;font-weight:500;color:var(--primary-text-color)}
@@ -654,7 +661,7 @@ class BydBatteryCompactCard extends HTMLElement {
     const m = this._model, root = this.shadowRoot.getElementById("c");
     if (!m) { root.textContent = "BYD Battery-Box: –"; return; }
     const k = m.bmu.keys;
-    const sig = [k.soc, k.power, k.remaining_energy, this._config.power_entity, ...m.bms.flatMap((b) => [...b.cells, ...Object.values(b.keys), ...b.alarms])]
+    const sig = [k.soc, k.power, k.remaining_energy, k.usable_capacity, k.soh, k.min_temperature, k.max_temperature, this._config.power_entity,...m.bms.flatMap((b) => [...b.cells, ...Object.values(b.keys), ...b.alarms])]
       .map((id) => (id && h.states[id] ? h.states[id].state : "")).join("|");
     if (sig === this._sig) return;
     this._sig = sig;
@@ -684,7 +691,15 @@ class BydBatteryCompactCard extends HTMLElement {
       const strip = volts.map((v) => `<i style="background:${v == null ? "var(--disabled-color)" : devColor(v - avg, this._config.scale_mv, this._config.colors)}"></i>`).join("");
       return `<div class="chip" title="${esc(a.findings.join(" "))}"><div class="cl"><span class="dot" style="background:${LEVEL_COLOR[a.level]}"></span>BMS ${b.index} · ${fmt(num(h, b.keys.soc), 0)} %</div><div class="strip">${strip}</div></div>`;
     }).join("");
-    root.innerHTML = `<div class="c1">${ring}<div><div class="pw">${p == null ? "–" : fmt(Math.abs(p))} W</div><div class="sub">${dir}${eta ? " · " + eta : ""}</div></div></div><div class="c2">${chips}</div>`;
+    const tMin = num(h, k.min_temperature), tMax = num(h, k.max_temperature), c = this._config.colors;
+    const temp = tMax == null ? "–" : tMin != null && tMin !== tMax ? `${fmt(tMin)}–${fmt(tMax)} °C` : `${fmt(tMax)} °C`;
+    const tStyle = tMax != null && tMax >= TEMP_WARM ? ` style="color:${c.warm}"` : tMin != null && tMin <= TEMP_COLD ? ` style="color:${c.cold}"` : "";
+    const row = (icon, label, value, extra = "") => `<div class="st" title="${esc(label)}"><ha-icon icon="${icon}"${extra}></ha-icon><span class="l">${label}</span><b>${value}</b></div>`;
+    const stats = `<div class="stats">
+      ${row("mdi:heart-pulse", ht(h, "soh_short"), `${fmt(num(h, k.soh))} %`)}
+      ${row("mdi:thermometer", ht(h, "temperature"), temp, tStyle)}
+      ${row("mdi:lightning-bolt", ht(h, "remaining"), `${fmt(num(h, k.remaining_energy), 1)} kWh`)}</div>`;
+    root.innerHTML = `<div class="c1">${ring}<div><div class="pw">${p == null ? "–" : fmt(Math.abs(p))} W</div><div class="sub">${dir}${eta ? " · " + eta : ""}</div></div>${stats}</div><div class="c2">${chips}</div>`;
   }
 
   _openPopup() {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+- Compact card: health (SOH), cell temperature range and remaining energy are now shown
+  in the top right. Labels are hidden on narrow cards; cell temperatures from 40 °C or at
+  or below 10 °C use the warm/cold colours.
+
 ## 0.3.1
 - New option **Nominal capacity per module** (Configure → step 1). The BMU reports LVL and
   LVS with the same type code, so LVS users can now set 4.0 kWh per module. Remaining
