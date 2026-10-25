@@ -38,6 +38,7 @@ BMU *and every single BMS* directly over the LAN – no cloud, no extra hardware
 | Battery | BMS | Firmware | Inverter | Status |
 |---|---|---|---|---|
 | Battery-Box Premium LVL 15.4 | 3 | BMU V1.35, BMS V1.17 | SMA Sunny Island | ✅ verified against Be Connect Plus |
+| Battery-Box Premium LVS 8.0 | 2 | – | – | ✅ community report (set 4.0 kWh per module) |
 
 HVS/HVM are **not** tested yet. Reports (with diagnostics) are very welcome.
 
@@ -47,7 +48,7 @@ HVS/HVM are **not** tested yet. Reports (with diagnostics) are very welcome.
 2. Install **BYD Battery-Box**, restart Home Assistant.
 3. *Settings → Devices & services → Add integration → BYD Battery-Box*, enter the BMU IP address.
 
-Polling intervals can be changed later under *Configure*.
+Polling intervals and the **nominal capacity per module** (LVL 15.4: 15.36 kWh, LVS 4.0: 4.0 kWh) can be changed later under *Configure*.
 
 ## Dashboard card
 

@@ -16,6 +16,10 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_MODULE_CAPACITY,
+    MAX_MODULE_CAPACITY,
+    MIN_MODULE_CAPACITY,
+    NOMINAL_KWH_PER_BMS,
     ALARM_OPTIONS,
     CONF_SOC_DIFF,
     CONF_TEMP_HIGH,
@@ -100,6 +104,17 @@ class BydOptionsFlow(OptionsFlow):
                     _seconds(MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL, 30),
                     vol.Coerce(int),
                     vol.Range(MIN_DETAIL_INTERVAL, MAX_DETAIL_INTERVAL),
+                ),
+                vol.Required(
+                    CONF_MODULE_CAPACITY,
+                    default=opts.get(CONF_MODULE_CAPACITY, NOMINAL_KWH_PER_BMS),
+                ): vol.All(
+                    NumberSelector(NumberSelectorConfig(
+                        min=MIN_MODULE_CAPACITY, max=MAX_MODULE_CAPACITY, step=0.01,
+                        unit_of_measurement="kWh", mode=NumberSelectorMode.BOX,
+                    )),
+                    vol.Coerce(float),
+                    vol.Range(MIN_MODULE_CAPACITY, MAX_MODULE_CAPACITY),
                 ),
             }
         )

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+- New option **Nominal capacity per module** (Configure → step 1). The BMU reports LVL and
+  LVS with the same type code, so LVS users can now set 4.0 kWh per module. Remaining
+  energy, usable capacity and full cycles use this value; with less than 8 kWh per module
+  the devices are shown as LVS. Default stays 15.36 kWh (LVL 15.4).
+- Fix: balancing cells were mirrored between cells 1–8 and 9–16. Bytes 17/18 are one
+  big-endian word (byte 18 = cells 1–8). Confirmed on an LVS system.
+
 ## 0.3.0
 - **Battery health analysis** per BMS (state survives restarts): relative capacity from the
   energy share between full charges, current share, weakest cell, internal resistance

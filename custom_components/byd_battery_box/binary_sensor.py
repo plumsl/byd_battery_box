@@ -9,14 +9,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .alarms import BMS_ALARMS, BMU_ALARMS, AlarmManager
 from .coordinator import BydConfigEntry
-from .sensor import bms_device_info, bmu_device_info
+from .sensor import _model, bms_device_info, bmu_device_info
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     rt = entry.runtime_data
     serial = rt.info.serial
-    bmu = bmu_device_info(rt.info)
+    bmu = bmu_device_info(rt.info, _model(entry, rt))
     entities: list[AlarmSensor] = [
         AlarmSensor(rt.details if key == "soc_imbalance" else rt.status, rt.alarms, 0, key,
                     f"{serial}_{key}", bmu)

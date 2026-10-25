@@ -18,8 +18,29 @@ MAX_STATUS_INTERVAL = 600
 MIN_DETAIL_INTERVAL = 60
 MAX_DETAIL_INTERVAL = 3600
 
-# Nominal usable energy of one LVL 15.4 (one BMS)
+# Nominal energy of one module (one BMS). The BMU reports LVL and LVS with the same
+# battery type code, so the module size cannot be detected and is an option.
+#   Battery-Box Premium LVL 15.4: 15.36 kWh per BMS
+#   Battery-Box Premium LVS 4.0:   4.0 kWh per BMS
+CONF_MODULE_CAPACITY = "module_capacity"
 NOMINAL_KWH_PER_BMS = 15.36
+MIN_MODULE_CAPACITY = 1.0
+MAX_MODULE_CAPACITY = 30.0
+# Below this module size the system is shown as LVS instead of LVL
+LVS_MAX_MODULE_KWH = 8.0
+
+
+def module_capacity(options) -> float:
+    """Configured nominal kWh per BMS, clamped to sensible limits."""
+    value = float(options.get(CONF_MODULE_CAPACITY, NOMINAL_KWH_PER_BMS))
+    return min(max(value, MIN_MODULE_CAPACITY), MAX_MODULE_CAPACITY)
+
+
+def model_name(battery_type: str, capacity: float) -> str:
+    """LVL and LVS share a type code - tell them apart by the configured module size."""
+    if battery_type == "LVL" and capacity < LVS_MAX_MODULE_KWH:
+        return "LVS"
+    return battery_type
 
 # Alarm thresholds (options)
 CONF_CELL_HIGH = "cell_voltage_high"

@@ -165,3 +165,14 @@ def test_charge_stop_bit_is_not_a_fault():
     b1[59], b1[60] = 0x00, 0x05  # plus battery overvoltage -> fault
     blocks[0] = bytes(b1)
     assert protocol.parse_bms(1, blocks).status == ["Battery overvoltage"]
+
+
+def test_balancing_bit_order():
+    """Bytes 17/18 are one big-endian word: byte 18 = cells 1-8, byte 17 = cells 9-16."""
+    blocks = bms_blocks(1)
+    b1 = bytearray(blocks[0])
+    b1[17], b1[18] = 0b00000100, 0b00100001  # cell 11 / cells 1 and 6
+    blocks[0] = bytes(b1)
+    bms = protocol.parse_bms(1, blocks)
+    assert bms.balancing_cells == [1, 6, 11]
+    assert bms.balancing_count == 3

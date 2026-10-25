@@ -314,13 +314,9 @@ def parse_bms(index: int, blocks: list[bytes]) -> BmsData:
         min_temp_no=b1[16],
         balancing_bits=b1[17:33].hex(),
         balancing_count=bin(int.from_bytes(b1[17:33], "big")).count("1"),
-        # EXPERIMENTAL: bit order not yet confirmed (byte 0 bit 0 = cell 1 assumed)
-        balancing_cells=[
-            byte * 8 + bit + 1
-            for byte in range(2)
-            for bit in range(8)
-            if b1[17 + byte] & (1 << bit)
-        ],
+        # Bytes 17/18 form one big-endian 16-bit word, bit n = cell n+1
+        # (byte 18 holds cells 1-8, byte 17 cells 9-16). Confirmed on an LVS system.
+        balancing_cells=[cell + 1 for cell in range(16) if _u16(b1, 17) & (1 << cell)],
         charge_energy=_u32_swapped(b1, 33) / 1000,
         discharge_energy=_u32_swapped(b1, 37) / 1000,
         voltage=_s16(b1, 45) / 10,

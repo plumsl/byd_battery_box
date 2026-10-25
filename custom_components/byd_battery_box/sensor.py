@@ -27,7 +27,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER, NOMINAL_KWH_PER_BMS
+from .const import DOMAIN, MANUFACTURER, model_name, module_capacity
 from .coordinator import BydConfigEntry
 from .protocol import CELLS_PER_BMS, TEMPS_PER_BMS, BmsData, BmuStatus
 
@@ -163,16 +163,20 @@ BMS_SENSORS: tuple[BydSensorDescription, ...] = (
 )
 
 
-def bmu_device_info(info) -> DeviceInfo:
+def bmu_device_info(info, model: str | None = None) -> DeviceInfo:
     """Device info of the BMU (parent device)."""
     return DeviceInfo(
         identifiers={(DOMAIN, info.serial)},
         manufacturer=MANUFACTURER,
         name="BYD Battery-Box",
-        model=f"Battery-Box Premium {info.battery_type}",
+        model=f"Battery-Box Premium {model or info.battery_type}",
         serial_number=info.serial,
         sw_version=f"BMU {info.bmu_firmware}",
     )
+
+
+def _model(entry: BydConfigEntry, rt) -> str:
+    return model_name(rt.info.battery_type, module_capacity(entry.options))
 
 
 def bms_device_info(hass: HomeAssistant, entry: BydConfigEntry, rt, index: int) -> DeviceInfo:
@@ -182,7 +186,7 @@ def bms_device_info(hass: HomeAssistant, entry: BydConfigEntry, rt, index: int) 
     # older versions only know the via_device identifier tuple.
     if "via_device_id" in DeviceInfo.__annotations__:
         bmu_entry = dr.async_get(hass).async_get_or_create(
-            config_entry_id=entry.entry_id, **bmu_device_info(rt.info)
+            config_entry_id=entry.entry_id, **bmu_device_info(rt.info, _model(entry, rt))
         )
         via: dict = {"via_device_id": bmu_entry.id}
     else:
@@ -192,7 +196,7 @@ def bms_device_info(hass: HomeAssistant, entry: BydConfigEntry, rt, index: int) 
         identifiers={(DOMAIN, f"{serial}_bms{index}")},
         manufacturer=MANUFACTURER,
         name=f"BYD BMS {index}",
-        model=f"{rt.info.battery_type} BMS",
+        model=f"{_model(entry, rt)} BMS",
         serial_number=bms.serial if bms else None,
         sw_version=rt.info.bms_firmware,
         **via,
@@ -203,8 +207,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BydConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     rt = entry.runtime_data
     serial = rt.info.serial
-    bmu_device = bmu_device_info(rt.info)
-    nominal = rt.info.bms_count * NOMINAL_KWH_PER_BMS
+    bmu_device = bmu_device_info(rt.info, _model(entry, rt))
+    nominal = rt.info.bms_count * module_capacity(entry.options)
 
     entities: list[SensorEntity] = [
         BmuSensor(rt.status, desc, serial, bmu_device) for desc in BMU_SENSORS
